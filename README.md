@@ -5,7 +5,7 @@ EcoRoute Team
 
 Ketua Kelompok: 
 
-Anggota 1: 
+Anggota 1: Akio Afifian Ahsan - 24/542230/TK/60198
 
 Anggota 2: Annora Farah Aprilla Setyawan - 24/538937/TK/59766
 
