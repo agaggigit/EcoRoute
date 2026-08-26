@@ -3,7 +3,7 @@ EcoRoute adalah aplikasi desktop berbasis WPF yang menghitung dan membandingkan 
 
 EcoRoute Team
 
-Ketua Kelompok: 
+Ketua Kelompok: Akio Afifian Ahsan - 24/542230/TK/60198
 
 Anggota 1: Akio Afifian Ahsan - 24/542230/TK/60198
 
