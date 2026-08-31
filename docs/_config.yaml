@@ -1,0 +1,3 @@
+theme: jekyll-theme-cayman
+title: EcoRoute
+description: EcoRoute adalah aplikasi desktop berbasis WPF yang menghitung dan membandingkan jejak karbon dari berbagai rute dan moda transportasi secara dinamis, sehingga membantu pengguna memilih perjalanan yang lebih ramah lingkungan.
