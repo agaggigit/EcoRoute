@@ -1,3 +1,5 @@
+// Basically untuk mengurus aliran data dari C# ke UI (Jika data C# berubah, UI ter-update).
+
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
