@@ -1,0 +1,103 @@
+<!--
+    State C, L, E - Input rute + loading + error. Pemilik: Akio.
+    KERANGKA DARI FONDASI: fungsi sudah jalan, tampilan silakan dipercantik.
+    Binding: DaftarModa (Nama, Ikon), SelectedModa, TitikAsal, TitikTujuan, ErrorMessage, CurrentState,
+             TukarCommand, HitungEmisiCommand (C -> L -> D/E), ResetCommand, TutupCommand (-> A)
+    Hasil (State D) ada di EmissionResultView, ditempel di bagian bawah card ini.
+-->
+<UserControl x:Class="EcoRoute.Views.Components.RouteInputView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:components="clr-namespace:EcoRoute.Views.Components"
+             mc:Ignorable="d"
+             d:DesignHeight="400" d:DesignWidth="400">
+
+    <Border Style="{StaticResource FloatingCardStyle}">
+        <StackPanel>
+            <!-- Pilihan moda + tombol tutup -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <ListBox ItemsSource="{Binding DaftarModa}"
+                         SelectedValuePath="Nama"
+                         SelectedValue="{Binding SelectedModa}"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock FontFamily="{StaticResource IconFont}"
+                                       Text="{Binding Ikon}"
+                                       ToolTip="{Binding Nama}"
+                                       FontSize="18"
+                                       Margin="4"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE711;"
+                        ToolTip="Tutup" Command="{Binding TutupCommand}"/>
+            </Grid>
+
+            <!-- Titik awal & tujuan + tombol tukar -->
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBox Style="{StaticResource InputBoxStyle}"
+                             Tag="Pilih titik awal, atau klik peta..."
+                             Text="{Binding TitikAsal, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Style="{StaticResource InputBoxStyle}"
+                             Tag="Pilih tujuan..."
+                             Text="{Binding TitikTujuan, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,8,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE8CB;"
+                        ToolTip="Tukar" Command="{Binding TukarCommand}"
+                        VerticalAlignment="Center" Margin="4,0,0,0"/>
+            </Grid>
+
+            <!-- Tombol hitung (C, D, E) -->
+            <Button Style="{StaticResource BlueButtonStyle}"
+                    Content="Hitung Emisi"
+                    Command="{Binding HitungEmisiCommand}"
+                    Margin="0,12,0,0"
+                    Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateC_InputRoute,StateD_RouteResult,StateE_Error'}"/>
+
+            <!-- State L: loading -->
+            <StackPanel Margin="0,12,0,0"
+                        Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateL_Loading'}">
+                <ProgressBar IsIndeterminate="True" Height="4" Foreground="{StaticResource PrimaryBlueBrush}" BorderThickness="0"/>
+                <TextBlock Text="Menghitung rute dan emisi..." Style="{StaticResource CaptionText}" Margin="0,8,0,0"/>
+            </StackPanel>
+
+            <!-- State E: error -->
+            <Border Background="{StaticResource DangerSoftBrush}"
+                    CornerRadius="10"
+                    Padding="12,10"
+                    Margin="0,12,0,0"
+                    Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateE_Error'}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE783;"
+                               Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource DangerBrush}" FontSize="13" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- State D: hasil -->
+            <components:EmissionResultView
+                Margin="0,16,0,0"
+                Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateD_RouteResult'}"/>
+        </StackPanel>
+    </Border>
+</UserControl>
