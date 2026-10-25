@@ -1,0 +1,49 @@
+<!--
+    State D - Hasil estimasi emisi. Pemilik: Akio.
+    KERANGKA DARI FONDASI: fungsi sudah jalan, tampilan silakan dipercantik (angka besar, bar perbandingan, dll).
+    Binding: EmisiKarbonKg, JarakKm, EstimasiWaktuMenit, SelectedModa, InsightText,
+             PerbandinganModa (Nama, Ikon, EmisiKg, RasioBar 0..1, IsTerpilih, IsTerhemat)
+-->
+<UserControl x:Class="EcoRoute.Views.Components.EmissionResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="368">
+
+    <StackPanel>
+        <TextBlock Text="Estimasi Emisi" Style="{StaticResource SectionText}"/>
+        <TextBlock Style="{StaticResource TitleText}" Margin="0,4,0,0">
+            <Run Text="{Binding EmisiKarbonKg, StringFormat={}{0:0.00}, Mode=OneWay}"/>
+            <Run Text="kg CO₂"/>
+        </TextBlock>
+        <TextBlock Style="{StaticResource CaptionText}">
+            <Run Text="{Binding SelectedModa, Mode=OneWay}"/>
+            <Run Text="·"/>
+            <Run Text="{Binding JarakKm, StringFormat={}{0:0.0} km, Mode=OneWay}"/>
+            <Run Text="·"/>
+            <Run Text="{Binding EstimasiWaktuMenit, StringFormat={}{0} menit, Mode=OneWay}"/>
+        </TextBlock>
+
+        <TextBlock Text="Perbandingan moda" Style="{StaticResource SectionText}" Margin="0,16,0,8"/>
+        <ItemsControl ItemsSource="{Binding PerbandinganModa}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="28"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock FontFamily="{StaticResource IconFont}" Text="{Binding Ikon}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Nama}" Style="{StaticResource BodyText}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding EmisiKg, StringFormat={}{0:0.00} kg}" Style="{StaticResource BodyText}"/>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="{Binding InsightText}" Style="{StaticResource CaptionText}" Margin="0,12,0,0"/>
+    </StackPanel>
+</UserControl>

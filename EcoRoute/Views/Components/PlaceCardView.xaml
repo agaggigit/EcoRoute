@@ -1,0 +1,52 @@
+<!--
+    State B - Info lokasi hasil pencarian. Pemilik: Annora.
+    KERANGKA DARI FONDASI: fungsi sudah jalan, tampilan silakan dipercantik.
+    Binding: SearchQuery, SelectedPlace.Nama / .Alamat / .Kategori,
+             CariCommand, TutupCommand (B -> A), MulaiRuteCommand (B -> C, tujuan terisi otomatis)
+-->
+<UserControl x:Class="EcoRoute.Views.Components.PlaceCardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="260" d:DesignWidth="400">
+
+    <Border Style="{StaticResource FloatingCardStyle}">
+        <StackPanel>
+            <!-- Search bar (tetap bisa cari lagi) -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Style="{StaticResource InputBoxStyle}"
+                         Tag="Cari di EcoRoute"
+                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding CariCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE721;"
+                        ToolTip="Cari" Command="{Binding CariCommand}" Margin="4,0,0,0"/>
+                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Content="&#xE711;"
+                        ToolTip="Tutup" Command="{Binding TutupCommand}"/>
+            </Grid>
+
+            <!-- Info lokasi -->
+            <TextBlock Text="{Binding SelectedPlace.Nama}" Style="{StaticResource TitleText}" Margin="0,16,0,4"/>
+            <TextBlock Text="{Binding SelectedPlace.Kategori}" Style="{StaticResource CaptionText}"/>
+            <TextBlock Text="{Binding SelectedPlace.Alamat}" Style="{StaticResource CaptionText}" Margin="0,2,0,16"/>
+
+            <Button Style="{StaticResource BlueButtonStyle}"
+                    HorizontalAlignment="Left"
+                    Command="{Binding MulaiRuteCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8CB;" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="Rute"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

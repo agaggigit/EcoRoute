@@ -1,0 +1,48 @@
+<!--
+    State A - Search bar. Pemilik: Annora.
+    Binding: SearchQuery, CariCommand (A -> B), MulaiRuteCommand (A -> C)
+-->
+<UserControl x:Class="EcoRoute.Views.Components.IdleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="80" d:DesignWidth="400">
+
+    <Border Style="{StaticResource FloatingCardStyle}" Padding="16,4,6,4" CornerRadius="24">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>    <!-- Input Text Search -->
+                <ColumnDefinition Width="Auto"/> <!-- Ikon Search & Rute -->
+            </Grid.ColumnDefinitions>
+
+            <!-- 1. Input Search Bar (Enter = cari) -->
+            <TextBox Grid.Column="0"
+                     Style="{StaticResource InputBoxStyle}"
+                     Tag="Cari di EcoRoute"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="0"
+                     FontSize="14"
+                     Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding CariCommand}"/>
+                </TextBox.InputBindings>
+            </TextBox>
+
+            <!-- 2. Ikon Search & Tombol Rute -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Style="{StaticResource IconButtonStyle}"
+                        Content="&#xE721;"
+                        ToolTip="Cari"
+                        Command="{Binding CariCommand}"/>
+                <Button Style="{StaticResource IconButtonStyle}"
+                        Content="&#xE8CB;"
+                        Foreground="{StaticResource PrimaryBlueBrush}"
+                        ToolTip="Rute"
+                        Command="{Binding MulaiRuteCommand}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
