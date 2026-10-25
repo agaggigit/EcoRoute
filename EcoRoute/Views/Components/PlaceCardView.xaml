@@ -1,8 +1,9 @@
+
 <!--
     State B - Info lokasi hasil pencarian. Pemilik: Annora.
-    KERANGKA DARI FONDASI: fungsi sudah jalan, tampilan silakan dipercantik.
     Binding: SearchQuery, SelectedPlace.Nama / .Alamat / .Kategori,
-             CariCommand, TutupCommand (B -> A), MulaiRuteCommand (B -> C, tujuan terisi otomatis)
+             CariCommand, TutupCommand (B -> A),
+             MulaiRuteCommand (B -> C)
 -->
 <UserControl x:Class="EcoRoute.Views.Components.PlaceCardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,43 +11,125 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="260" d:DesignWidth="400">
+             d:DesignHeight="280"
+             d:DesignWidth="440">
 
-    <Border Style="{StaticResource FloatingCardStyle}">
+    <Border Style="{StaticResource FloatingCardStyle}"
+            Padding="20"
+            CornerRadius="22">
+
         <StackPanel>
-            <!-- Search bar (tetap bisa cari lagi) -->
+
+            <!-- SEARCH BAR -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox Style="{StaticResource InputBoxStyle}"
-                         Tag="Cari di EcoRoute"
+
+                <TextBox Grid.Column="0"
+                         Style="{StaticResource InputBoxStyle}"
+                         Tag="Cari lokasi tujuan..."
+                         FontSize="14"
+                         VerticalContentAlignment="Center"
                          Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}">
+
                     <TextBox.InputBindings>
-                        <KeyBinding Key="Enter" Command="{Binding CariCommand}"/>
+                        <KeyBinding Key="Enter"
+                                    Command="{Binding CariCommand}"/>
                     </TextBox.InputBindings>
                 </TextBox>
-                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE721;"
-                        ToolTip="Cari" Command="{Binding CariCommand}" Margin="4,0,0,0"/>
-                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Content="&#xE711;"
-                        ToolTip="Tutup" Command="{Binding TutupCommand}"/>
+
+                <!-- TOMBOL CARI -->
+                <Button Grid.Column="1"
+                        Style="{StaticResource IconButtonStyle}"
+                        Content="&#xE721;"
+                        ToolTip="Cari lokasi"
+                        Command="{Binding CariCommand}"
+                        Margin="6,0,0,0"
+                        Cursor="Hand"/>
+
+                <!-- TOMBOL TUTUP -->
+                <Button Grid.Column="2"
+                        Style="{StaticResource IconButtonStyle}"
+                        Content="&#xE711;"
+                        ToolTip="Tutup informasi lokasi"
+                        Command="{Binding TutupCommand}"
+                        Cursor="Hand"/>
             </Grid>
 
-            <!-- Info lokasi -->
-            <TextBlock Text="{Binding SelectedPlace.Nama}" Style="{StaticResource TitleText}" Margin="0,16,0,4"/>
-            <TextBlock Text="{Binding SelectedPlace.Kategori}" Style="{StaticResource CaptionText}"/>
-            <TextBlock Text="{Binding SelectedPlace.Alamat}" Style="{StaticResource CaptionText}" Margin="0,2,0,16"/>
+            <!-- GARIS PEMISAH -->
+            <Border Height="1"
+                    Background="#E9EEF5"
+                    Margin="0,18,0,18"/>
 
+            <!-- INFORMASI LOKASI -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ICON LOKASI -->
+                <Border Grid.Column="0"
+                        Width="36"
+                        Height="36"
+                        Background="#EDF4FF"
+                        CornerRadius="10"
+                        VerticalAlignment="Top">
+
+                    <TextBlock Text="&#xE707;"
+                               FontFamily="{StaticResource IconFont}"
+                               FontSize="18"
+                               Foreground="{StaticResource PrimaryBlueBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- DETAIL TEMPAT -->
+                <StackPanel Grid.Column="1">
+
+                    <TextBlock Text="{Binding SelectedPlace.Nama}"
+                               Style="{StaticResource TitleText}"
+                               FontSize="19"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,5"/>
+
+                    <TextBlock Text="{Binding SelectedPlace.Kategori}"
+                               Style="{StaticResource CaptionText}"
+                               Margin="0,0,0,8"/>
+
+                    <TextBlock Text="{Binding SelectedPlace.Alamat}"
+                               Style="{StaticResource CaptionText}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,4"/>
+
+                </StackPanel>
+            </Grid>
+
+            <!-- TOMBOL RUTE -->
             <Button Style="{StaticResource BlueButtonStyle}"
-                    HorizontalAlignment="Left"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Margin="0,20,0,0"
+                    Cursor="Hand"
                     Command="{Binding MulaiRuteCommand}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8CB;" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="Rute"/>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center">
+
+                    <TextBlock FontFamily="{StaticResource IconFont}"
+                               Text="&#xE8CB;"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+
+                    <TextBlock Text="Rute"
+                               FontSize="14"
+                               FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
+
         </StackPanel>
     </Border>
 </UserControl>

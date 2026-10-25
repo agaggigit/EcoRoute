@@ -1,22 +1,20 @@
+
 <!--
-    Lapisan peta di belakang semua card. Pemilik: Annora.
-    TODO (Annora): ganti placeholder ini dengan WebView2 + Leaflet + OpenStreetMap.
-    Binding yang relevan: SelectedPlace.Lat / .Lng (marker), TitikAsal (klik peta), CurrentState
+    Lapisan peta EcoRoute.
+    Pemilik: Annora.
+    Menggunakan WebView2 + Leaflet + OpenStreetMap.
 -->
 <UserControl x:Class="EcoRoute.Views.Components.MapView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
              mc:Ignorable="d"
-             d:DesignHeight="600" d:DesignWidth="900">
+             d:DesignHeight="600"
+             d:DesignWidth="900">
 
     <Grid Background="#E2E8F0">
-        <TextBlock Text="[ PETA INTERAKTIF LEAFLET / OPENSTREETMAP ]"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="20"
-                   FontWeight="Bold"
-                   Foreground="{StaticResource TextMutedBrush}"/>
+        <wv2:WebView2CompositionControl x:Name="MapBrowser"/>
     </Grid>
 </UserControl>
