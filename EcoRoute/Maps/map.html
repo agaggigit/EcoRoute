@@ -29,6 +29,11 @@
         .leaflet-container {
             font-family: 'Segoe UI', sans-serif;
         }
+
+        .location-popup {
+            font-size: 14px;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -38,6 +43,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+        // INISIALISASI PETA
         const map = L.map('map', {
             zoomControl: false
         }).setView([-7.7956, 110.3695], 13);
@@ -53,6 +59,124 @@
                 attribution: '&copy; OpenStreetMap contributors'
             }
         ).addTo(map);
+
+        // MARKER
+        let selectedMarker = null;
+        let originMarker = null;
+
+        // Hanya aktif saat State C
+        let canSelectOrigin = false;
+
+        // MARKER TUJUAN
+        function showLocation(lat, lng, nama) {
+            if (!Number.isFinite(lat) ||
+                !Number.isFinite(lng)) {
+                return;
+            }
+
+            if (selectedMarker !== null) {
+                map.removeLayer(selectedMarker);
+            }
+
+            selectedMarker = L.marker([lat, lng])
+                .addTo(map);
+
+            const popup = document.createElement('div');
+            popup.className = 'location-popup';
+            popup.textContent = nama || 'Lokasi dipilih';
+
+            selectedMarker.bindPopup(popup).openPopup();
+
+            map.setView([lat, lng], 16, {
+                animate: true
+            });
+        }
+
+        function showLocationFromWpf(location) {
+            if (!location) return;
+
+            showLocation(
+                Number(location.lat),
+                Number(location.lng),
+                location.nama
+            );
+        }
+
+        function clearLocation() {
+            if (selectedMarker !== null) {
+                map.removeLayer(selectedMarker);
+                selectedMarker = null;
+            }
+        }
+
+        // MARKER TITIK ASAL
+        function showOrigin(lat, lng) {
+            if (originMarker !== null) {
+                map.removeLayer(originMarker);
+            }
+
+            originMarker = L.circleMarker(
+                [lat, lng],
+                {
+                    radius: 9,
+                    color: '#FFFFFF',
+                    weight: 3,
+                    fillColor: '#22C55E',
+                    fillOpacity: 1
+                }
+            ).addTo(map);
+
+            originMarker.bindPopup('Titik Asal').openPopup();
+        }
+
+        function clearOrigin() {
+            if (originMarker !== null) {
+                map.removeLayer(originMarker);
+                originMarker = null;
+            }
+        }
+
+        // MENGATUR IZIN KLIK PETA
+        function setOriginSelectionEnabled(enabled) {
+            canSelectOrigin = enabled === true;
+
+            if (!canSelectOrigin) {
+                map.getContainer().style.cursor = '';
+            } else {
+                map.getContainer().style.cursor = 'crosshair';
+            }
+        }
+
+        // KLIK PETA
+        map.on('click', function (event) {
+            if (!canSelectOrigin) {
+                return;
+            }
+
+            const lat = event.latlng.lat;
+            const lng = event.latlng.lng;
+
+            showOrigin(lat, lng);
+
+            if (window.chrome &&
+                window.chrome.webview) {
+                window.chrome.webview.postMessage({
+                    type: 'mapClicked',
+                    lat: lat,
+                    lng: lng
+                });
+            }
+        });
+
+        // MEMBERI TAHU WPF PETA SUDAH SIAP
+        map.whenReady(function () {
+            if (window.chrome &&
+                window.chrome.webview) {
+                window.chrome.webview.postMessage({
+                    type: 'mapReady'
+                });
+            }
+        });
     </script>
 </body>
 </html>

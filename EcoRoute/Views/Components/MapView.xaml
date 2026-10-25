@@ -15,6 +15,6 @@
              d:DesignWidth="900">
 
     <Grid Background="#E2E8F0">
-        <wv2:WebView2 x:Name="MapBrowser"/>
+        <wv2:WebView2CompositionControl x:Name="MapBrowser"/>
     </Grid>
 </UserControl>
