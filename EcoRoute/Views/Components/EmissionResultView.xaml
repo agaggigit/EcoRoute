@@ -1,6 +1,5 @@
 <!--
     State D - Hasil estimasi emisi. Pemilik: Akio.
-    KERANGKA DARI FONDASI: fungsi sudah jalan, tampilan silakan dipercantik (angka besar, bar perbandingan, dll).
     Binding: EmisiKarbonKg, JarakKm, EstimasiWaktuMenit, SelectedModa, InsightText,
              PerbandinganModa (Nama, Ikon, EmisiKg, RasioBar 0..1, IsTerpilih, IsTerhemat)
 -->
@@ -10,40 +9,106 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="300" d:DesignWidth="368">
+             d:DesignHeight="420" d:DesignWidth="368">
 
     <StackPanel>
-        <TextBlock Text="Estimasi Emisi" Style="{StaticResource SectionText}"/>
-        <TextBlock Style="{StaticResource TitleText}" Margin="0,4,0,0">
-            <Run Text="{Binding EmisiKarbonKg, StringFormat={}{0:0.00}, Mode=OneWay}"/>
-            <Run Text="kg CO₂"/>
-        </TextBlock>
-        <TextBlock Style="{StaticResource CaptionText}">
-            <Run Text="{Binding SelectedModa, Mode=OneWay}"/>
-            <Run Text="·"/>
-            <Run Text="{Binding JarakKm, StringFormat={}{0:0.0} km, Mode=OneWay}"/>
-            <Run Text="·"/>
-            <Run Text="{Binding EstimasiWaktuMenit, StringFormat={}{0} menit, Mode=OneWay}"/>
-        </TextBlock>
+        <Border Height="1" Background="{StaticResource BorderLightBrush}" Margin="0,0,0,16"/>
 
+        <!-- Angka emisi utama -->
+        <Border Background="{StaticResource EcoGreenSoftBrush}" CornerRadius="12" Padding="16,12">
+            <StackPanel>
+                <TextBlock Text="Estimasi emisi perjalanan" Style="{StaticResource CaptionText}"/>
+                <TextBlock Foreground="{StaticResource EcoGreenBrush}" Margin="0,2,0,0">
+                    <Run Text="{Binding EmisiKarbonKg, StringFormat={}{0:0.00}, Mode=OneWay}" FontSize="36" FontWeight="Bold"/>
+                    <Run Text="kg CO₂" FontSize="16" FontWeight="SemiBold"/>
+                </TextBlock>
+                <WrapPanel Margin="0,4,0,0">
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,0,12,0"
+                               Text="{Binding JarakKm, StringFormat={}{0:0.0} km}"/>
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,0,12,0">
+                        <Run FontFamily="{StaticResource IconFont}" Text="&#xE916;"/>
+                        <Run Text="{Binding EstimasiWaktuMenit, StringFormat={}{0} menit, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource CaptionText}">
+                        <Run Text="naik"/>
+                        <Run Text="{Binding SelectedModa, Mode=OneWay}" FontWeight="SemiBold"/>
+                    </TextBlock>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Perbandingan antar moda: bar horizontal -->
         <TextBlock Text="Perbandingan moda" Style="{StaticResource SectionText}" Margin="0,16,0,8"/>
         <ItemsControl ItemsSource="{Binding PerbandinganModa}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="28"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock FontFamily="{StaticResource IconFont}" Text="{Binding Ikon}" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="{Binding Nama}" Style="{StaticResource BodyText}"/>
-                        <TextBlock Grid.Column="2" Text="{Binding EmisiKg, StringFormat={}{0:0.00} kg}" Style="{StaticResource BodyText}"/>
-                    </Grid>
+                    <Border x:Name="Row" CornerRadius="8" Padding="8,4" Margin="0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="26"/>
+                                <ColumnDefinition Width="76"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="64"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="Ikon" FontFamily="{StaticResource IconFont}" Text="{Binding Ikon}"
+                                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="Nama" Grid.Column="1" Text="{Binding Nama}" Style="{StaticResource BodyText}"
+                                       VerticalAlignment="Center"/>
+
+                            <!-- Track + isi bar; panjang isi = RasioBar lewat ScaleX -->
+                            <Grid Grid.Column="2" Height="8" VerticalAlignment="Center" Margin="0,0,8,0">
+                                <Border Background="{StaticResource SurfaceHoverBrush}" CornerRadius="4"/>
+                                <Border x:Name="Bar" Background="{StaticResource TextMutedBrush}" CornerRadius="4"
+                                        RenderTransformOrigin="0,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="{Binding RasioBar}"/>
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock x:Name="Emisi" Grid.Column="3" Text="{Binding EmisiKg, StringFormat={}{0:0.00} kg}"
+                                       Style="{StaticResource BodyText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <!-- Moda yang dipilih: latar biru lembut + teks tebal -->
+                        <DataTrigger Binding="{Binding IsTerpilih}" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource PrimaryBlueSoftBrush}"/>
+                            <Setter TargetName="Bar" Property="Background" Value="{StaticResource PrimaryBlueBrush}"/>
+                            <Setter TargetName="Ikon" Property="Foreground" Value="{StaticResource PrimaryBlueBrush}"/>
+                            <Setter TargetName="Nama" Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="Emisi" Property="FontWeight" Value="SemiBold"/>
+                        </DataTrigger>
+                        <!-- Moda terhemat: hijau (ditaruh setelah IsTerpilih supaya menang kalau keduanya benar) -->
+                        <DataTrigger Binding="{Binding IsTerhemat}" Value="True">
+                            <Setter TargetName="Bar" Property="Background" Value="{StaticResource EcoGreenBrush}"/>
+                            <Setter TargetName="Ikon" Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                            <Setter TargetName="Emisi" Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <TextBlock Text="{Binding InsightText}" Style="{StaticResource CaptionText}" Margin="0,12,0,0"/>
+        <!-- Legenda warna -->
+        <WrapPanel Margin="8,6,0,0">
+            <Ellipse Width="8" Height="8" Fill="{StaticResource PrimaryBlueBrush}" VerticalAlignment="Center"/>
+            <TextBlock Text="Dipilih" Style="{StaticResource CaptionText}" Margin="4,0,12,0"/>
+            <Ellipse Width="8" Height="8" Fill="{StaticResource EcoGreenBrush}" VerticalAlignment="Center"/>
+            <TextBlock Text="Paling hemat" Style="{StaticResource CaptionText}" Margin="4,0,0,0"/>
+        </WrapPanel>
+
+        <!-- Insight -->
+        <Border Background="{StaticResource EcoGreenSoftBrush}" CornerRadius="10" Padding="12,10" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE946;"
+                           Foreground="{StaticResource EcoGreenBrush}" VerticalAlignment="Top" Margin="0,2,8,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding InsightText}" Style="{StaticResource BodyText}"/>
+            </Grid>
+        </Border>
     </StackPanel>
 </UserControl>
