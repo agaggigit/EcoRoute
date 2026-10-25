@@ -1,6 +1,5 @@
 <!--
     State C, L, E - Input rute + loading + error. Pemilik: Akio.
-    KERANGKA DARI FONDASI: fungsi sudah jalan, tampilan silakan dipercantik.
     Binding: DaftarModa (Nama, Ikon), SelectedModa, TitikAsal, TitikTujuan, ErrorMessage, CurrentState,
              TukarCommand, HitungEmisiCommand (C -> L -> D/E), ResetCommand, TutupCommand (-> A)
     Hasil (State D) ada di EmissionResultView, ditempel di bagian bawah card ini.
@@ -14,7 +13,39 @@
              mc:Ignorable="d"
              d:DesignHeight="400" d:DesignWidth="400">
 
+    <UserControl.Resources>
+        <!-- Chip moda: bulat, biru lembut saat dipilih -->
+        <Style x:Key="ModaChipStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="18" Width="40" Height="36">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource PrimaryBlueSoftBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <Border Style="{StaticResource FloatingCardStyle}">
+        <!-- Scroll kalau card lebih tinggi dari jendela (hasil State D cukup panjang) -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
             <!-- Pilihan moda + tombol tutup -->
             <Grid>
@@ -25,6 +56,7 @@
                 <ListBox ItemsSource="{Binding DaftarModa}"
                          SelectedValuePath="Nama"
                          SelectedValue="{Binding SelectedModa}"
+                         ItemContainerStyle="{StaticResource ModaChipStyle}"
                          BorderThickness="0"
                          Background="Transparent"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -38,60 +70,98 @@
                             <TextBlock FontFamily="{StaticResource IconFont}"
                                        Text="{Binding Ikon}"
                                        ToolTip="{Binding Nama}"
-                                       FontSize="18"
-                                       Margin="4"/>
+                                       FontSize="18"/>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
                 <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE711;"
                         ToolTip="Tutup" Command="{Binding TutupCommand}"/>
             </Grid>
+            <TextBlock Style="{StaticResource CaptionText}" Margin="4,6,0,0">
+                <Run Text="Moda:"/>
+                <Run Text="{Binding SelectedModa, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBlueBrush}"/>
+            </TextBlock>
 
-            <!-- Titik awal & tujuan + tombol tukar -->
+            <!-- Titik awal & tujuan + penanda rute + tombol tukar -->
             <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Ellipse Width="10" Height="10" Stroke="{StaticResource TextSecondaryBrush}" StrokeThickness="2"
+                         HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <Line Grid.RowSpan="3" X1="0" X2="0" Y1="0" Y2="1" Stretch="Fill"
+                      Stroke="{StaticResource TextMutedBrush}" StrokeThickness="2" StrokeDashArray="1,2"
+                      HorizontalAlignment="Left" Margin="4,26,0,26"/>
+                <Ellipse Grid.Row="2" Width="10" Height="10" Fill="{StaticResource DangerBrush}"
+                         HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                <TextBox Grid.Column="1" Style="{StaticResource InputBoxStyle}"
+                         Tag="Pilih titik awal, atau klik peta..."
+                         Text="{Binding TitikAsal, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource InputBoxStyle}"
+                         Tag="Pilih tujuan..."
+                         Text="{Binding TitikTujuan, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <Button Grid.Column="2" Grid.RowSpan="3" Style="{StaticResource IconButtonStyle}" Content="&#xE8CB;"
+                        ToolTip="Tukar titik awal dan tujuan" Command="{Binding TukarCommand}"
+                        VerticalAlignment="Center" Margin="4,0,0,0"/>
+            </Grid>
+
+            <!-- Tombol hitung (C, D, E) + reset (D, E) -->
+            <Grid Margin="0,16,0,0"
+                  Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateC_InputRoute,StateD_RouteResult,StateE_Error'}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBox Style="{StaticResource InputBoxStyle}"
-                             Tag="Pilih titik awal, atau klik peta..."
-                             Text="{Binding TitikAsal, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBox Style="{StaticResource InputBoxStyle}"
-                             Tag="Pilih tujuan..."
-                             Text="{Binding TitikTujuan, UpdateSourceTrigger=PropertyChanged}"
-                             Margin="0,8,0,0"/>
-                </StackPanel>
-                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE8CB;"
-                        ToolTip="Tukar" Command="{Binding TukarCommand}"
-                        VerticalAlignment="Center" Margin="4,0,0,0"/>
+                <Button Style="{StaticResource BlueButtonStyle}"
+                        Content="Hitung Emisi"
+                        Padding="14,10"
+                        Command="{Binding HitungEmisiCommand}"/>
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE72C;"
+                        ToolTip="Atur ulang input" Command="{Binding ResetCommand}" Margin="8,0,0,0"
+                        Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateD_RouteResult,StateE_Error'}"/>
             </Grid>
 
-            <!-- Tombol hitung (C, D, E) -->
-            <Button Style="{StaticResource BlueButtonStyle}"
-                    Content="Hitung Emisi"
-                    Command="{Binding HitungEmisiCommand}"
-                    Margin="0,12,0,0"
-                    Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateC_InputRoute,StateD_RouteResult,StateE_Error'}"/>
-
             <!-- State L: loading -->
-            <StackPanel Margin="0,12,0,0"
+            <StackPanel Margin="0,16,0,0"
                         Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateL_Loading'}">
-                <ProgressBar IsIndeterminate="True" Height="4" Foreground="{StaticResource PrimaryBlueBrush}" BorderThickness="0"/>
-                <TextBlock Text="Menghitung rute dan emisi..." Style="{StaticResource CaptionText}" Margin="0,8,0,0"/>
+                <ProgressBar IsIndeterminate="True" Height="4" Foreground="{StaticResource PrimaryBlueBrush}"
+                             Background="{StaticResource PrimaryBlueSoftBrush}" BorderThickness="0"/>
+                <TextBlock Text="Menghitung rute dan emisi..." Style="{StaticResource CaptionText}"
+                           HorizontalAlignment="Center" Margin="0,8,0,0"/>
             </StackPanel>
 
             <!-- State E: error -->
             <Border Background="{StaticResource DangerSoftBrush}"
+                    BorderBrush="{StaticResource DangerBrush}"
+                    BorderThickness="1"
                     CornerRadius="10"
                     Padding="12,10"
                     Margin="0,12,0,0"
                     Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateE_Error'}">
-                <StackPanel Orientation="Horizontal">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE783;"
-                               Foreground="{StaticResource DangerBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource DangerBrush}" FontSize="13" TextWrapping="Wrap"/>
-                </StackPanel>
+                               Foreground="{StaticResource DangerBrush}" VerticalAlignment="Top" Margin="0,2,8,0"/>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Gagal menghitung rute" FontWeight="SemiBold" FontSize="13"
+                                   Foreground="{StaticResource DangerBrush}"/>
+                        <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource DangerBrush}"
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <!-- State D: hasil -->
@@ -99,5 +169,6 @@
                 Margin="0,16,0,0"
                 Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateD_RouteResult'}"/>
         </StackPanel>
+        </ScrollViewer>
     </Border>
 </UserControl>
