@@ -221,7 +221,7 @@ public class MainViewModel : BaseViewModel
 
         // Alternatif kendaraan bermotor paling hemat (sepeda/jalan kaki tidak dihitung)
         var alternatif = emisiPerModa
-            .Where(x => x.Emisi > 0 && x.Emisi < EmisiKarbonKg)
+            .Where(x => x.Moda is KendaraanBermotor && x.Emisi < EmisiKarbonKg)
             .OrderBy(x => x.Emisi)
             .FirstOrDefault();
 
