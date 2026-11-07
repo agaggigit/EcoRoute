@@ -28,12 +28,12 @@ public class MainViewModel : BaseViewModel
 
     public IReadOnlyList<ModaTransportasi> DaftarModa { get; } =
     [
-        new("Mobil",      "",      0.1920),
-        new("Motor",      "\U0001F6F5",  0.1030),
-        new("Bus",        "",      0.0890),
-        new("Kereta",     "",      0.0410),
-        new("Sepeda",     "\U0001F6B2",  0),
-        new("Jalan Kaki", "",      0),
+        new KendaraanBermotor("Mobil",      "",      0.1920),
+        new KendaraanBermotor("Motor",      "\U0001F6F5",  0.1030),
+        new KendaraanBermotor("Bus",        "",      0.0890),
+        new KendaraanBermotor("Kereta",     "",      0.0410),
+        new TransportasiAktif("Sepeda",     "\U0001F6B2"),
+        new TransportasiAktif("Jalan Kaki", ""),
     ];
 
     public AppState CurrentState
@@ -196,7 +196,7 @@ public class MainViewModel : BaseViewModel
 
     private void HitungUlangEmisi()
     {
-        var emisiPerModa = DaftarModa.Select(m => (Moda: m, Emisi: JarakKm * m.FaktorEmisiKgPerKm)).ToList();
+        var emisiPerModa = DaftarModa.Select(m => (Moda: m, Emisi: m.HitungEmisi(JarakKm))).ToList();
         double emisiMax = emisiPerModa.Max(x => x.Emisi);
         double emisiMin = emisiPerModa.Min(x => x.Emisi);
 
