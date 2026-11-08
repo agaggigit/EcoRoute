@@ -10,10 +10,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Maps\map.html"
-             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Maps\map.html" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
 </Project>
