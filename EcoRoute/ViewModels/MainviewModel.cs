@@ -43,9 +43,9 @@ public partial class MainViewModel : BaseViewModel
     // Nilai awal (cadangan kalau PostgreSQL tidak tersambung). Faktor emisi sama dengan Database/seed.sql
     private IReadOnlyList<ModaTransportasi> _daftarModa =
     [
-        new KendaraanBermotor("Mobil",      "",      0.1920),
-        new KendaraanBermotor("Motor",      "\U0001F6F5",  0.1030),
-        new KendaraanBermotor("Bus",        "",      0.0890),
+        new KendaraanBermotor("Mobil",      "",      0.1920, 1.35),
+        new KendaraanBermotor("Motor",      "\U0001F6F5",  0.1030, 1.15),
+        new KendaraanBermotor("Bus",        "",      0.0890, 1.25),
         new KendaraanBermotor("Kereta",     "",      0.0410),
         new TransportasiAktif("Sepeda",     "\U0001F6B2"),
         new TransportasiAktif("Jalan Kaki", ""),
@@ -200,6 +200,20 @@ public partial class MainViewModel : BaseViewModel
         {
             // Ganti moda saat hasil sudah tampil -> langsung hitung ulang
             if (SetProperty(ref _selectedModa, value) && CurrentState == AppState.StateD_RouteResult)
+                HitungUlangEmisi();
+        }
+    }
+
+    public IReadOnlyList<TingkatKemacetan> DaftarKemacetan { get; } = Enum.GetValues<TingkatKemacetan>();
+
+    // Nilai awal ditebak dari jam saat aplikasi dibuka; user bisa menggantinya di card input rute
+    private TingkatKemacetan _kemacetan = TingkatKemacetanInfo.Default(DateTime.Now);
+    public TingkatKemacetan Kemacetan
+    {
+        get => _kemacetan;
+        set
+        {
+            if (SetProperty(ref _kemacetan, value) && CurrentState == AppState.StateD_RouteResult)
                 HitungUlangEmisi();
         }
     }
@@ -462,7 +476,7 @@ public partial class MainViewModel : BaseViewModel
 
     private void HitungUlangEmisi()
     {
-        var emisiPerModa = DaftarModa.Select(m => (Moda: m, Emisi: m.HitungEmisi(JarakKm))).ToList();
+        var emisiPerModa = DaftarModa.Select(m => (Moda: m, Emisi: m.HitungEmisi(JarakKm, Kemacetan))).ToList();
         double emisiMax = emisiPerModa.Max(x => x.Emisi);
         double emisiMin = emisiPerModa.Min(x => x.Emisi);
 
@@ -478,7 +492,7 @@ public partial class MainViewModel : BaseViewModel
 
         EmisiKarbonKg = emisiPerModa.FirstOrDefault(x => x.Moda.Nama == SelectedModa).Emisi;
         if (HasilRute is not null)
-            EstimasiWaktuMenit = RoutingService.EstimasiWaktuMenit(SelectedModa, HasilRute);
+            EstimasiWaktuMenit = RoutingService.EstimasiWaktuMenit(SelectedModa, HasilRute, Kemacetan);
         InsightText = BuatInsight(emisiPerModa);
     }
 
@@ -486,6 +500,20 @@ public partial class MainViewModel : BaseViewModel
     {
         if (EmisiKarbonKg == 0)
             return "Perjalanan ini tanpa emisi karbon. Mantap!";
+
+        string insightModa = BuatInsightModa(emisiPerModa);
+
+        // Tambahan emisi akibat kemacetan dibanding kondisi lancar (kalau modanya terpengaruh)
+        ModaTransportasi? moda = DaftarModa.FirstOrDefault(m => m.Nama == SelectedModa);
+        if (Kemacetan == TingkatKemacetan.Lancar || moda is not KendaraanBermotor { TerpengaruhKemacetan: true })
+            return insightModa;
+
+        double tambahan = EmisiKarbonKg - moda.HitungEmisi(JarakKm);
+        return $"{insightModa} Lalu lintas {Kemacetan.ToString().ToLower()} menambah {tambahan:0.00} kg CO₂ dibanding kondisi lancar.";
+    }
+
+    private string BuatInsightModa(List<(ModaTransportasi Moda, double Emisi)> emisiPerModa)
+    {
 
         // Alternatif kendaraan bermotor paling hemat (sepeda/jalan kaki tidak dihitung)
         var alternatif = emisiPerModa

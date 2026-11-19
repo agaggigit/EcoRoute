@@ -1,6 +1,7 @@
 <!--
     State C, L, E - Input rute + loading + error. Pemilik: Akio.
-    Binding: DaftarModa (Nama, Ikon), SelectedModa, TitikAsal, TitikTujuan, ErrorMessage, CurrentState,
+    Binding: DaftarModa (Nama, Ikon), SelectedModa, DaftarKemacetan, Kemacetan,
+             TitikAsal, TitikTujuan, ErrorMessage, CurrentState,
              TukarCommand, HitungEmisiCommand (C -> L -> D/E), ResetCommand, TutupCommand (-> A)
     Hasil (State D) ada di EmissionResultView, ditempel di bagian bawah card ini.
 -->
@@ -40,6 +41,22 @@
                     <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+
+        <!-- Chip kondisi lalu lintas: kotak teks kecil, biru lembut saat dipilih -->
+        <Style x:Key="KemacetanChipStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ModaChipStyle}">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Height="30"
+                                BorderBrush="{StaticResource BorderLightBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
@@ -114,6 +131,21 @@
                         ToolTip="Tukar titik awal dan tujuan" Command="{Binding TukarCommand}"
                         VerticalAlignment="Center" Margin="4,0,0,0"/>
             </Grid>
+
+            <!-- Kondisi lalu lintas: memengaruhi penalti emisi & waktu tempuh kendaraan bermotor -->
+            <TextBlock Text="Kondisi lalu lintas" Style="{StaticResource CaptionText}" Margin="4,12,0,4"/>
+            <ListBox ItemsSource="{Binding DaftarKemacetan}"
+                     SelectedItem="{Binding Kemacetan}"
+                     ItemContainerStyle="{StaticResource KemacetanChipStyle}"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1"/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
 
             <!-- Tombol hitung (C, D, E) + reset (D, E) -->
             <Grid Margin="0,16,0,0"

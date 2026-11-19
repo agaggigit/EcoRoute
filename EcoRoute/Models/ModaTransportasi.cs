@@ -1,5 +1,5 @@
-// Pilihan moda di UI. Faktor emisi (kg CO2/km) sementara disalin dari Database/seed.sql,
-// nanti diisi dari tabel emission_factor (faktor_emisi_dasar, faktor_penalti_kemacetan).
+// Pilihan moda di UI. Faktor emisi (kg CO2/km) diambil dari tabel emission_factor
+// (faktor_emisi_dasar, faktor_penalti_kemacetan); nilai cadangan ada di MainViewModel.
 namespace EcoRoute.Models;
 
 // Base class: semua moda punya Nama & Ikon, tapi cara menghitung emisinya diserahkan ke subclass.
@@ -14,8 +14,11 @@ public abstract class ModaTransportasi
         Ikon = ikon;
     }
 
-    // Emisi (kg CO2) untuk jarak tertentu; tiap jenis moda punya rumus sendiri.
-    public abstract double HitungEmisi(double jarakKm);
+    // Emisi (kg CO2) untuk jarak dan kondisi lalu lintas tertentu; tiap jenis moda punya rumus sendiri.
+    public abstract double HitungEmisi(double jarakKm, TingkatKemacetan kemacetan);
+
+    // Versi singkat: lalu lintas lancar (tanpa penalti kemacetan).
+    public double HitungEmisi(double jarakKm) => HitungEmisi(jarakKm, TingkatKemacetan.Lancar);
 
     protected static void ValidasiJarak(double jarakKm)
     {
@@ -23,7 +26,8 @@ public abstract class ModaTransportasi
     }
 }
 
-// Mobil, Motor, Bus, Kereta: emisi = jarak x faktor dasar x penalti kemacetan.
+// Mobil, Motor, Bus, Kereta: emisi = jarak x faktor dasar x penalti efektif.
+// Penalti efektif = 1 + (faktor penalti - 1) x bobot kemacetan, jadi Lancar = x1 dan Macet = penalti penuh.
 public class KendaraanBermotor : ModaTransportasi
 {
     private readonly double _faktorEmisiDasar;
@@ -38,19 +42,23 @@ public class KendaraanBermotor : ModaTransportasi
         _faktorPenaltiKemacetan = faktorPenaltiKemacetan;
     }
 
-    public override double HitungEmisi(double jarakKm)
+    // true kalau emisinya terpengaruh kemacetan (Kereta punya penalti 1.0, jadi tidak)
+    public bool TerpengaruhKemacetan => _faktorPenaltiKemacetan > 1.0;
+
+    public override double HitungEmisi(double jarakKm, TingkatKemacetan kemacetan)
     {
         ValidasiJarak(jarakKm);
-        return jarakKm * _faktorEmisiDasar * _faktorPenaltiKemacetan;
+        double penaltiEfektif = 1.0 + (_faktorPenaltiKemacetan - 1.0) * kemacetan.BobotPenalti();
+        return jarakKm * _faktorEmisiDasar * penaltiEfektif;
     }
 }
 
-// Sepeda, Jalan Kaki: tenaga manusia, tanpa emisi.
+// Sepeda, Jalan Kaki: tenaga manusia, tanpa emisi di kondisi lalu lintas apa pun.
 public class TransportasiAktif : ModaTransportasi
 {
     public TransportasiAktif(string nama, string ikon) : base(nama, ikon) { }
 
-    public override double HitungEmisi(double jarakKm)
+    public override double HitungEmisi(double jarakKm, TingkatKemacetan kemacetan)
     {
         ValidasiJarak(jarakKm);
         return 0;
