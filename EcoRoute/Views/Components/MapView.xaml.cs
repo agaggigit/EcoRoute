@@ -143,7 +143,30 @@ public partial class MapView : UserControl
             if (messageType == "mapReady")
             {
                 _mapReady = true;
+                await SendPopularPlacesAsync();
                 await SynchronizeMapAsync();
+                return;
+            }
+
+            // Klik pin tempat populer -> jadi lokasi terpilih (State B)
+            if (messageType == "placeClicked")
+            {
+                if (_viewModel == null ||
+                    (_viewModel.CurrentState != AppState.StateA_Idle &&
+                     _viewModel.CurrentState != AppState.StateB_SearchLocation))
+                {
+                    return;
+                }
+
+                string? nama = root.GetProperty("nama").GetString();
+                Place? place = _viewModel.TempatPopuler
+                    .FirstOrDefault(p => p.Nama == nama);
+
+                if (place != null &&
+                    _viewModel.PilihTempatCommand.CanExecute(place))
+                {
+                    _viewModel.PilihTempatCommand.Execute(place);
+                }
                 return;
             }
 
@@ -201,12 +224,81 @@ public partial class MapView : UserControl
         {
             await UpdateMapStateAsync();
         }
+
+        if (e.PropertyName == nameof(
+                MainViewModel.KategoriAktif))
+        {
+            await UpdateCategoryFilterAsync();
+        }
     }
 
     private async Task SynchronizeMapAsync()
     {
         await UpdateMarkerAsync();
         await UpdateMapStateAsync();
+        await UpdateCategoryFilterAsync();
+    }
+
+    private async Task SendPopularPlacesAsync()
+    {
+        if (!_mapReady ||
+            MapBrowser.CoreWebView2 == null ||
+            _viewModel == null)
+        {
+            return;
+        }
+
+        try
+        {
+            string placesData = JsonSerializer.Serialize(
+                _viewModel.TempatPopuler.Select(p => new
+                {
+                    nama = p.Nama,
+                    kategori = p.Kategori,
+                    lat = p.Lat,
+                    lng = p.Lng
+                })
+            );
+
+            await MapBrowser.CoreWebView2
+                .ExecuteScriptAsync(
+                    $"setPopularPlaces({placesData});"
+                );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Gagal mengirim tempat populer: {ex.Message}"
+            );
+        }
+    }
+
+    private async Task UpdateCategoryFilterAsync()
+    {
+        if (!_mapReady ||
+            MapBrowser.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        try
+        {
+            // Serialize supaya jadi string JS yang aman ("Wisata" atau null)
+            string category = JsonSerializer.Serialize(
+                _viewModel?.KategoriAktif
+            );
+
+            await MapBrowser.CoreWebView2
+                .ExecuteScriptAsync(
+                    $"setCategoryFilter({category});"
+                );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Gagal memperbarui filter kategori: {ex.Message}"
+            );
+        }
     }
 
     private async Task UpdateMarkerAsync()
@@ -272,6 +364,18 @@ public partial class MapView : UserControl
             await MapBrowser.CoreWebView2
                 .ExecuteScriptAsync(
                     $"setOriginSelectionEnabled({enabled});"
+                );
+
+            // Pin tempat populer hanya di State A & B,
+            // supaya peta bersih saat input & hasil rute.
+            bool showPopular =
+                _viewModel?.CurrentState is
+                    AppState.StateA_Idle or
+                    AppState.StateB_SearchLocation;
+
+            await MapBrowser.CoreWebView2
+                .ExecuteScriptAsync(
+                    $"setPopularVisible({(showPopular ? "true" : "false")});"
                 );
 
             if (!isInputRoute)

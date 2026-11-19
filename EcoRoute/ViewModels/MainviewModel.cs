@@ -36,6 +36,57 @@ public class MainViewModel : BaseViewModel
         new TransportasiAktif("Jalan Kaki", ""),
     ];
 
+    // Ikon dari Segoe UI Symbol (lihat IconFont di App.xaml)
+    public IReadOnlyList<KategoriTempat> DaftarKategori { get; } =
+    [
+        new KategoriTempat("Wisata",       "\U0001F4F7"),
+        new KategoriTempat("Kuliner",      "\U0001F374"),
+        new KategoriTempat("Kampus",       "\U0001F393"),
+        new KategoriTempat("Transportasi", "\U0001F686"),
+        new KategoriTempat("Belanja",      "\U0001F6CD"),
+        new KategoriTempat("Taman",        "\U0001F333"),
+    ];
+
+    // Tempat populer Yogyakarta: tampil sebagai pin di peta dan chip di card State A
+    public IReadOnlyList<Place> TempatPopuler { get; } =
+    [
+        new Place("Malioboro",               "Jl. Malioboro, Yogyakarta",                 "Wisata",       -7.792583, 110.365861),
+        new Place("Tugu Yogyakarta",         "Jl. Jend. Sudirman, Yogyakarta",            "Wisata",       -7.782889, 110.367083),
+        new Place("Keraton Yogyakarta",      "Jl. Rotowijayan, Kraton, Yogyakarta",       "Wisata",       -7.805284, 110.364203),
+        new Place("Taman Sari",              "Patehan, Kraton, Yogyakarta",               "Wisata",       -7.810074, 110.359257),
+        new Place("Benteng Vredeburg",       "Jl. Margo Mulyo, Yogyakarta",               "Wisata",       -7.800269, 110.366260),
+        new Place("Bakpia Pathok 25",        "Jl. AIP II KS Tubun, Ngampilan",            "Kuliner",      -7.793900, 110.357400),
+        new Place("Mie Ayam Bu Tumini",      "Jl. Imogiri Timur, Umbulharjo",             "Kuliner",      -7.819900, 110.378600),
+        new Place("Universitas Gadjah Mada", "Bulaksumur, Sleman",                        "Kampus",       -7.770717, 110.377724),
+        new Place("Universitas Negeri Yogyakarta", "Jl. Colombo, Karangmalang, Sleman",   "Kampus",       -7.776500, 110.386700),
+        new Place("Stasiun Yogyakarta",      "Jl. Margo Utomo, Gedong Tengen",            "Transportasi", -7.789173, 110.363358),
+        new Place("Stasiun Lempuyangan",     "Jl. Lempuyangan, Bausasran",                "Transportasi", -7.790200, 110.375000),
+        new Place("Pasar Beringharjo",       "Jl. Pabringan, Ngupasan, Yogyakarta",       "Belanja",      -7.798700, 110.365400),
+        new Place("Galeria Mall",            "Jl. Jend. Sudirman, Terban",                "Belanja",      -7.782900, 110.380400),
+        new Place("Ambarrukmo Plaza",        "Jl. Laksda Adisucipto, Caturtunggal",       "Belanja",      -7.782800, 110.401400),
+        new Place("Alun-Alun Kidul",         "Patehan, Kraton, Yogyakarta",               "Taman",        -7.811860, 110.363470),
+        new Place("Gembira Loka Zoo",        "Jl. Kebun Raya, Rejowinangun",              "Taman",        -7.806000, 110.396300),
+    ];
+
+    // Yang tampil sebagai chip di card State A
+    public IReadOnlyList<Place> TempatSorotan => TempatPopuler
+        .Where(t => t.Nama is "Malioboro" or "Tugu Yogyakarta" or "Keraton Yogyakarta"
+                           or "Universitas Gadjah Mada" or "Stasiun Yogyakarta" or "Taman Sari")
+        .ToList();
+
+    // null = semua kategori tampil
+    private string? _kategoriAktif;
+    public string? KategoriAktif
+    {
+        get => _kategoriAktif;
+        private set
+        {
+            if (!SetProperty(ref _kategoriAktif, value)) return;
+            foreach (var k in DaftarKategori)
+                k.IsAktif = k.Nama == value;
+        }
+    }
+
     public AppState CurrentState
     {
         get => _currentState;
@@ -130,9 +181,15 @@ public class MainViewModel : BaseViewModel
     public ICommand HitungEmisiCommand { get; }
     public ICommand ResetCommand { get; }
     public ICommand TutupCommand { get; }
+    public ICommand PilihTempatCommand { get; }
+    public ICommand PilihKategoriCommand { get; }
 
     public MainViewModel()
     {
+        PilihTempatCommand = new RelayCommand(ExecutePilihTempat, p => p is Place);
+        // Klik chip yang sama lagi -> filter dimatikan
+        PilihKategoriCommand = new RelayCommand(p =>
+            KategoriAktif = p is string nama && nama != KategoriAktif ? nama : null);
         ToggleMenuCommand = new RelayCommand(_ => IsMenuOpen = !IsMenuOpen);
         CariCommand = new RelayCommand(ExecuteCari, _ => !string.IsNullOrWhiteSpace(SearchQuery));
         MulaiRuteCommand = new RelayCommand(ExecuteMulaiRute);
@@ -149,6 +206,15 @@ public class MainViewModel : BaseViewModel
         // ===============================
         SelectedPlace = new Place(SearchQuery.Trim(), "Yogyakarta, Daerah Istimewa Yogyakarta", "Tempat Wisata", -7.792583, 110.365861);
         // ===============================
+        CurrentState = AppState.StateB_SearchLocation;
+    }
+
+    // A / B -> B. Dari chip tempat populer atau klik pin di peta
+    private void ExecutePilihTempat(object? parameter)
+    {
+        if (parameter is not Place place) return;
+        SearchQuery = place.Nama;
+        SelectedPlace = place;
         CurrentState = AppState.StateB_SearchLocation;
     }
 
