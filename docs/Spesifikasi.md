@@ -1,4 +1,8 @@
-# EcoRoute
+# Spesifikasi Awal EcoRoute
+
+Dokumen perencanaan awal (state tampilan, prioritas fitur, model data, dan batasan project). Panduan penggunaan ada di [README](../README.md).
+
+## Deskripsi
 EcoRoute adalah aplikasi desktop berbasis WPF yang menghitung dan membandingkan jejak karbon dari berbagai rute dan moda transportasi secara dinamis, sehingga membantu pengguna memilih perjalanan yang lebih ramah lingkungan.
 
 EcoRoute Team
