@@ -1,0 +1,16 @@
+# Spesifikasi Awal EcoRoute
+
+Dokumen perencanaan awal (state tampilan, prioritas fitur, model data, dan batasan project). Panduan penggunaan ada di [README](../README.md).
+
+## Deskripsi
+EcoRoute adalah aplikasi desktop berbasis WPF yang menghitung dan membandingkan jejak karbon dari berbagai rute dan moda transportasi secara dinamis, sehingga membantu pengguna memilih perjalanan yang lebih ramah lingkungan.
+
+EcoRoute Team
+
+Ketua Kelompok: Akio Afifian Ahsan - 24/542230/TK/60198
+
+Anggota 1: Akio Afifian Ahsan - 24/542230/TK/60198
+
+Anggota 2: Annora Farah Aprilla Setyawan - 24/538937/TK/59766
+
+Anggota 3: Muhammad Affandi Argya Bagaskara - 24/538984/TK/59778

@@ -100,7 +100,9 @@ public class RoutingService
 
     // Estimasi waktu tempuh per moda. Mobil memakai durasi asli OSRM,
     // moda lain memakai kecepatan rata-rata dalam kota (km/jam).
-    public static int EstimasiWaktuMenit(string moda, RouteResult rute)
+    // Kendaraan yang lewat jalan raya (Mobil, Motor, Bus) melambat saat macet.
+    public static int EstimasiWaktuMenit(string moda, RouteResult rute,
+        TingkatKemacetan kemacetan = TingkatKemacetan.Lancar)
     {
         double? kecepatan = moda switch
         {
@@ -115,6 +117,9 @@ public class RoutingService
         double menit = kecepatan is null
             ? rute.DurasiMobilMenit
             : rute.JarakKm / kecepatan.Value * 60.0;
+
+        if (moda is "Mobil" or "Motor" or "Bus")
+            menit *= kemacetan.PengaliWaktu();
 
         return Math.Max(1, (int)Math.Round(menit));
     }
