@@ -18,9 +18,83 @@
         <vm:MainViewModel />
     </Window.DataContext>
 
+    <Window.Resources>
+        <!-- Item rail kiri: ikon + label kecil di bawahnya -->
+        <Style x:Key="RailButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Background="Transparent">
+                            <Border x:Name="Pill"
+                                    Width="44" Height="30"
+                                    CornerRadius="15"
+                                    Background="{TemplateBinding Background}">
+                                <TextBlock Text="{TemplateBinding Tag}"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="16"
+                                           Foreground="{TemplateBinding Foreground}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              Margin="0,3,0,0"
+                                              TextElement.FontSize="11"/>
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Chip kategori di atas peta -->
+        <Style x:Key="CategoryChipStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="19"
+                                Padding="{TemplateBinding Padding}"
+                                Effect="{StaticResource FloatingShadow}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsAktif}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource EcoGreenBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="56"/> <!-- Rail menu kiri -->
+            <ColumnDefinition Width="72"/> <!-- Rail menu kiri -->
             <ColumnDefinition Width="*"/>  <!-- Peta + card -->
         </Grid.ColumnDefinitions>
 
@@ -30,13 +104,35 @@
                 BorderBrush="{StaticResource BorderLightBrush}"
                 BorderThickness="0,0,1,0"
                 Panel.ZIndex="2">
-            <Button Style="{StaticResource IconButtonStyle}"
-                    Content="&#xE700;"
-                    FontSize="18"
-                    VerticalAlignment="Top"
-                    Margin="0,16,0,0"
-                    ToolTip="Menu"
-                    Command="{Binding ToggleMenuCommand}"/>
+            <StackPanel Margin="0,16,0,0">
+                <Button Style="{StaticResource IconButtonStyle}"
+                        Content="&#xE700;"
+                        FontSize="18"
+                        Margin="0,0,0,20"
+                        ToolTip="Menu"
+                        Command="{Binding ToggleMenuCommand}"/>
+
+                <!-- Jelajah: kembali ke peta (State A) -->
+                <Button Style="{StaticResource RailButtonStyle}"
+                        Tag="&#xE707;"
+                        Content="Jelajah"
+                        Background="{StaticResource EcoGreenSoftBrush}"
+                        Foreground="{StaticResource EcoGreenBrush}"
+                        ToolTip="Jelajahi peta"
+                        Command="{Binding TutupCommand}"/>
+
+                <Button Style="{StaticResource RailButtonStyle}"
+                        Tag="&#xE81C;"
+                        Content="Riwayat"
+                        ToolTip="Riwayat perjalanan"
+                        Command="{Binding ToggleMenuCommand}"/>
+
+                <Button Style="{StaticResource RailButtonStyle}"
+                        Tag="&#x1F33F;"
+                        Content="Eco Score"
+                        ToolTip="Eco score kamu"
+                        Command="{Binding ToggleMenuCommand}"/>
+            </StackPanel>
         </Border>
 
         <Grid Grid.Column="1">
@@ -55,6 +151,39 @@
                 <components:RouteInputView
                     Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateC_InputRoute,StateL_Loading,StateD_RouteResult,StateE_Error'}"/>
             </Grid>
+
+            <!-- ===== Lapisan 2b: Chip kategori (filter pin di peta) ===== -->
+            <ItemsControl ItemsSource="{Binding DaftarKategori}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Top"
+                          Margin="428,26,16,0"
+                          ClipToBounds="False"
+                          Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateA_Idle,StateB_SearchLocation'}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource CategoryChipStyle}"
+                                ToolTip="{Binding Nama, StringFormat='Tampilkan hanya {0}'}"
+                                Command="{Binding DataContext.PilihKategoriCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding Nama}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Ikon}"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="14"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding Nama}"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <!-- ===== Lapisan 3: Drawer menu (dibuka dari rail) ===== -->
             <Border HorizontalAlignment="Left"
