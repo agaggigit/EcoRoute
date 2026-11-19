@@ -13,11 +13,36 @@ public class ModaTransportasiTests
     }
 
     [Fact]
-    public void KendaraanBermotor_PenaltiKemacetanIkutDikalikan()
+    public void KendaraanBermotor_SaatMacetPenaltiDipakaiPenuh()
     {
         var mobil = new KendaraanBermotor("Mobil", "", 0.192, faktorPenaltiKemacetan: 1.5);
 
-        Assert.Equal(2.88, mobil.HitungEmisi(10), precision: 6);
+        Assert.Equal(2.88, mobil.HitungEmisi(10, TingkatKemacetan.Macet), precision: 6);
+    }
+
+    [Fact]
+    public void KendaraanBermotor_SaatLancarTanpaPenalti()
+    {
+        var mobil = new KendaraanBermotor("Mobil", "", 0.192, faktorPenaltiKemacetan: 1.5);
+
+        Assert.Equal(1.92, mobil.HitungEmisi(10, TingkatKemacetan.Lancar), precision: 6);
+        Assert.Equal(1.92, mobil.HitungEmisi(10), precision: 6);
+    }
+
+    [Theory]
+    [InlineData(TingkatKemacetan.Sedang, 2.24)] // 1.92 x (1 + 0.5 x 1/3)
+    [InlineData(TingkatKemacetan.Padat, 2.56)]  // 1.92 x (1 + 0.5 x 2/3)
+    public void KendaraanBermotor_PenaltiNaikBertahap(TingkatKemacetan kemacetan, double emisiDiharapkan)
+    {
+        var mobil = new KendaraanBermotor("Mobil", "", 0.192, faktorPenaltiKemacetan: 1.5);
+
+        Assert.Equal(emisiDiharapkan, mobil.HitungEmisi(10, kemacetan), precision: 6);
+    }
+
+    [Fact]
+    public void TransportasiAktif_TetapNolSaatMacet()
+    {
+        Assert.Equal(0, new TransportasiAktif("Sepeda", "").HitungEmisi(10, TingkatKemacetan.Macet));
     }
 
     [Fact]
