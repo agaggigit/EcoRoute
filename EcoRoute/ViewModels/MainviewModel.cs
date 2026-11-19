@@ -1,12 +1,26 @@
 // Untuk menyimpan state, menyimpan data dari user, menyimpan data kalkulasi, menyediakan perintah tombol
+using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Windows.Input;
 using EcoRoute.Models;
+using EcoRoute.Services;
 
 namespace EcoRoute.ViewModels;
 
-public class MainViewModel : BaseViewModel
+public partial class MainViewModel : BaseViewModel
 {
+    // Belum ada sistem akun (di luar scope), jadi riwayat disimpan atas nama user demo dari seed.sql
+    private const int PenggunaAktifId = 1;
+
+    private readonly RoutingService _routingService = new();
+    private DatabaseService? _databaseService;
+
     private AppState _currentState = AppState.StateA_Idle;
+    private bool _isMencari;
+    private string _notifikasi = string.Empty;
+    private RouteResult? _hasilRute;
+    private IReadOnlyList<TripHistory> _riwayatPerjalanan = [];
+    private string _statusRiwayat = "Database belum terhubung. Riwayat perjalanan tidak disimpan.";
     private bool _isMenuOpen;
 
     // State A & B
@@ -26,7 +40,8 @@ public class MainViewModel : BaseViewModel
     private string _insightText = string.Empty;
     private string _errorMessage = string.Empty;
 
-    public IReadOnlyList<ModaTransportasi> DaftarModa { get; } =
+    // Nilai awal (cadangan kalau PostgreSQL tidak tersambung). Faktor emisi sama dengan Database/seed.sql
+    private IReadOnlyList<ModaTransportasi> _daftarModa =
     [
         new KendaraanBermotor("Mobil",      "",      0.1920),
         new KendaraanBermotor("Motor",      "\U0001F6F5",  0.1030),
@@ -86,6 +101,57 @@ public class MainViewModel : BaseViewModel
                 k.IsAktif = k.Nama == value;
         }
     }
+
+    public IReadOnlyList<ModaTransportasi> DaftarModa
+    {
+        get => _daftarModa;
+        private set => SetProperty(ref _daftarModa, value);
+    }
+
+    // true saat sedang memanggil Nominatim dari search bar (State A/B)
+    public bool IsMencari
+    {
+        get => _isMencari;
+        private set
+        {
+            if (SetProperty(ref _isMencari, value))
+                CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    // Pesan singkat di bawah peta (misal lokasi tidak ditemukan saat mencari di State A/B)
+    public string Notifikasi
+    {
+        get => _notifikasi;
+        private set
+        {
+            if (SetProperty(ref _notifikasi, value))
+                OnPropertyChanged(nameof(AdaNotifikasi));
+        }
+    }
+
+    public bool AdaNotifikasi => !string.IsNullOrEmpty(Notifikasi);
+
+    // Rute hasil OSRM, dipakai MapView untuk menggambar garis rute. null = tidak ada rute.
+    public RouteResult? HasilRute
+    {
+        get => _hasilRute;
+        private set => SetProperty(ref _hasilRute, value);
+    }
+
+    public IReadOnlyList<TripHistory> RiwayatPerjalanan
+    {
+        get => _riwayatPerjalanan;
+        private set => SetProperty(ref _riwayatPerjalanan, value);
+    }
+
+    public string StatusRiwayat
+    {
+        get => _statusRiwayat;
+        private set => SetProperty(ref _statusRiwayat, value);
+    }
+
+    public bool IsDatabaseTerhubung => _databaseService is not null;
 
     public AppState CurrentState
     {
@@ -190,8 +256,8 @@ public class MainViewModel : BaseViewModel
         // Klik chip yang sama lagi -> filter dimatikan
         PilihKategoriCommand = new RelayCommand(p =>
             KategoriAktif = p is string nama && nama != KategoriAktif ? nama : null);
-        ToggleMenuCommand = new RelayCommand(_ => IsMenuOpen = !IsMenuOpen);
-        CariCommand = new RelayCommand(ExecuteCari, _ => !string.IsNullOrWhiteSpace(SearchQuery));
+        ToggleMenuCommand = new RelayCommand(ExecuteToggleMenu);
+        CariCommand = new RelayCommand(ExecuteCari, _ => !IsMencari && !string.IsNullOrWhiteSpace(SearchQuery));
         MulaiRuteCommand = new RelayCommand(ExecuteMulaiRute);
         TukarCommand = new RelayCommand(_ => (TitikAsal, TitikTujuan) = (TitikTujuan, TitikAsal));
         HitungEmisiCommand = new RelayCommand(ExecuteHitungEmisi, CanExecuteHitungEmisi);
@@ -199,14 +265,136 @@ public class MainViewModel : BaseViewModel
         TutupCommand = new RelayCommand(ExecuteTutup);
     }
 
-    // A -> B
-    private void ExecuteCari(object? parameter)
+    // ==========================================
+    // DATABASE (dipanggil MainWindow setelah user memasukkan password PostgreSQL)
+    // ==========================================
+    public async Task LoadModaFromDatabaseAsync(string connectionString)
     {
-        // MOCK, SIMULASI HASIL PENCARIAN (Nanti manggil geocoding)
-        // ===============================
-        SelectedPlace = new Place(SearchQuery.Trim(), "Yogyakarta, Daerah Istimewa Yogyakarta", "Tempat Wisata", -7.792583, 110.365861);
-        // ===============================
-        CurrentState = AppState.StateB_SearchLocation;
+        var database = new DatabaseService(connectionString);
+
+        // Error koneksi dilempar ke MainWindow supaya bisa ditampilkan ke user
+        List<ModaTransportasi> modaDariDb = await database.GetModaTransportasiAsync();
+        if (modaDariDb.Count == 0)
+            throw new InvalidOperationException("Tabel emission_factor kosong. Jalankan Database/seed.sql dulu.");
+
+        DaftarModa = modaDariDb;
+        _databaseService = database;
+        OnPropertyChanged(nameof(IsDatabaseTerhubung));
+
+        await MuatRiwayatAsync();
+    }
+
+    private async Task MuatRiwayatAsync()
+    {
+        if (_databaseService is null) return;
+
+        try
+        {
+            RiwayatPerjalanan = await _databaseService.GetTripHistoryAsync(PenggunaAktifId);
+            StatusRiwayat = RiwayatPerjalanan.Count == 0
+                ? "Belum ada perjalanan. Hitung emisi rute pertamamu!"
+                : $"{RiwayatPerjalanan.Count} perjalanan · total {RiwayatPerjalanan.Sum(r => r.TotalEmisiKg):0.00} kg CO₂";
+        }
+        catch (Exception ex)
+        {
+            StatusRiwayat = $"Gagal memuat riwayat: {ex.Message}";
+        }
+    }
+
+    private async Task SimpanPerjalananAsync(RouteResult rute)
+    {
+        if (_databaseService is null) return;
+
+        try
+        {
+            await _databaseService.SaveTripAsync(
+                PenggunaAktifId,
+                rute.Asal.Nama,
+                rute.Tujuan.Nama,
+                rute.Asal.Lat, rute.Asal.Lng,
+                rute.Tujuan.Lat, rute.Tujuan.Lng,
+                rute.JarakKm,
+                EstimasiWaktuMenit,
+                SelectedModa,
+                EmisiKarbonKg);
+
+            await MuatRiwayatAsync();
+        }
+        catch (Exception ex)
+        {
+            // Gagal simpan tidak boleh menggagalkan hasil yang sudah tampil
+            Notifikasi = $"Hasil tidak tersimpan ke riwayat: {ex.Message}";
+        }
+    }
+
+    private async void ExecuteToggleMenu(object? parameter)
+    {
+        IsMenuOpen = !IsMenuOpen;
+        if (IsMenuOpen)
+            await MuatRiwayatAsync();
+    }
+
+    // ==========================================
+    // PENCARIAN TEMPAT (Nominatim)
+    // ==========================================
+
+    // A -> B
+    private async void ExecuteCari(object? parameter)
+    {
+        Notifikasi = string.Empty;
+        IsMencari = true;
+
+        try
+        {
+            IReadOnlyList<Place> hasil = await _routingService.CariTempatAsync(SearchQuery);
+            SelectedPlace = hasil[0];
+            CurrentState = AppState.StateB_SearchLocation;
+        }
+        catch (Exception ex)
+        {
+            Notifikasi = ex is RoutingException ? ex.Message : $"Pencarian gagal: {ex.Message}";
+        }
+        finally
+        {
+            IsMencari = false;
+        }
+    }
+
+    // Teks "lat, lng" (hasil klik peta di State C)
+    [GeneratedRegex(@"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$")]
+    private static partial Regex PolaKoordinat();
+
+    // Ubah teks input jadi Place berkoordinat: koordinat langsung, tempat yang sudah dipilih, atau geocoding.
+    private async Task<Place> CariKoordinatAsync(string teks, string label)
+    {
+        teks = teks.Trim();
+
+        Match match = PolaKoordinat().Match(teks);
+        if (match.Success)
+        {
+            double lat = double.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            double lng = double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+            if (lat is < -90 or > 90 || lng is < -180 or > 180)
+                throw new RoutingException($"Koordinat {label} tidak valid.");
+            return new Place("Titik di peta", teks, "Koordinat", lat, lng);
+        }
+
+        if (SelectedPlace is not null && string.Equals(SelectedPlace.Nama, teks, StringComparison.OrdinalIgnoreCase))
+            return SelectedPlace;
+
+        Place? populer = TempatPopuler.FirstOrDefault(p => string.Equals(p.Nama, teks, StringComparison.OrdinalIgnoreCase));
+        if (populer is not null)
+            return populer;
+
+        try
+        {
+            IReadOnlyList<Place> hasil = await _routingService.CariTempatAsync(teks, limit: 1);
+            return hasil[0] with { Nama = teks };
+        }
+        catch (RoutingException ex)
+        {
+            throw new RoutingException($"{label}: {ex.Message}", ex);
+        }
     }
 
     // A / B -> B. Dari chip tempat populer atau klik pin di peta
@@ -232,25 +420,37 @@ public class MainViewModel : BaseViewModel
         ErrorMessage = string.Empty;
         CurrentState = AppState.StateL_Loading;
 
+        Notifikasi = string.Empty;
+        HasilRute = null;
+
         try
         {
-            await Task.Delay(1500);
-
             if (string.Equals(TitikAsal.Trim(), TitikTujuan.Trim(), StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Titik awal dan tujuan tidak boleh sama.");
+                throw new RoutingException("Titik awal dan tujuan tidak boleh sama.");
 
-            // MOCK, SIMULASI BERHASIL (Nanti manggil backend)
-            // ===============================
-            JarakKm = 14.5;
-            EstimasiWaktuMenit = 35;
-            // ===============================
+            Place asal = await CariKoordinatAsync(TitikAsal, "Titik awal");
+            Place tujuan = await CariKoordinatAsync(TitikTujuan, "Tujuan");
 
+            if (Math.Abs(asal.Lat - tujuan.Lat) < 0.0002 && Math.Abs(asal.Lng - tujuan.Lng) < 0.0002)
+                throw new RoutingException("Titik awal dan tujuan berada di lokasi yang sama.");
+
+            RouteResult rute = await _routingService.HitungRuteAsync(asal, tujuan);
+
+            JarakKm = rute.JarakKm;
+            HasilRute = rute;
             HitungUlangEmisi();
             CurrentState = AppState.StateD_RouteResult;
+
+            await SimpanPerjalananAsync(rute);
+        }
+        catch (RoutingException ex)
+        {
+            ErrorMessage = ex.Message;
+            CurrentState = AppState.StateE_Error;
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = $"Terjadi kesalahan: {ex.Message}";
             CurrentState = AppState.StateE_Error;
         }
     }
@@ -276,7 +476,9 @@ public class MainViewModel : BaseViewModel
                 x.Emisi == emisiMin))
             .ToList();
 
-        EmisiKarbonKg = emisiPerModa.First(x => x.Moda.Nama == SelectedModa).Emisi;
+        EmisiKarbonKg = emisiPerModa.FirstOrDefault(x => x.Moda.Nama == SelectedModa).Emisi;
+        if (HasilRute is not null)
+            EstimasiWaktuMenit = RoutingService.EstimasiWaktuMenit(SelectedModa, HasilRute);
         InsightText = BuatInsight(emisiPerModa);
     }
 
@@ -302,6 +504,7 @@ public class MainViewModel : BaseViewModel
         TitikAsal = string.Empty;
         TitikTujuan = string.Empty;
         ErrorMessage = string.Empty;
+        HasilRute = null;
         CurrentState = AppState.StateC_InputRoute;
     }
 
@@ -318,6 +521,8 @@ public class MainViewModel : BaseViewModel
         PerbandinganModa = [];
         InsightText = string.Empty;
         ErrorMessage = string.Empty;
+        Notifikasi = string.Empty;
+        HasilRute = null;
         CurrentState = AppState.StateA_Idle;
     }
 }

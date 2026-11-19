@@ -49,7 +49,7 @@ public partial class MainWindow : Window
         if (password is null)
         {
             MessageBox.Show(
-                "Database belum dimuat. Perhitungan emisi belum dapat digunakan.",
+                "Database tidak dihubungkan. Emisi tetap bisa dihitung, tetapi riwayat perjalanan tidak disimpan.",
                 "EcoRoute",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information

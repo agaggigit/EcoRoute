@@ -230,6 +230,12 @@ public partial class MapView : UserControl
         {
             await UpdateCategoryFilterAsync();
         }
+
+        if (e.PropertyName == nameof(
+                MainViewModel.HasilRute))
+        {
+            await UpdateRouteAsync();
+        }
     }
 
     private async Task SynchronizeMapAsync()
@@ -237,6 +243,47 @@ public partial class MapView : UserControl
         await UpdateMarkerAsync();
         await UpdateMapStateAsync();
         await UpdateCategoryFilterAsync();
+        await UpdateRouteAsync();
+    }
+
+    // Gambar garis rute hasil OSRM (State D), atau hapus kalau HasilRute null
+    private async Task UpdateRouteAsync()
+    {
+        if (!_mapReady ||
+            MapBrowser.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        try
+        {
+            RouteResult? rute = _viewModel?.HasilRute;
+
+            if (rute == null)
+            {
+                await MapBrowser.CoreWebView2
+                    .ExecuteScriptAsync("clearRoute();");
+                return;
+            }
+
+            string routeData = JsonSerializer.Serialize(
+                new
+                {
+                    points = rute.Titik,
+                    origin = new { lat = rute.Asal.Lat, lng = rute.Asal.Lng, nama = rute.Asal.Nama },
+                    destination = new { lat = rute.Tujuan.Lat, lng = rute.Tujuan.Lng, nama = rute.Tujuan.Nama }
+                }
+            );
+
+            await MapBrowser.CoreWebView2
+                .ExecuteScriptAsync($"showRoute({routeData});");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Gagal menggambar rute: {ex.Message}"
+            );
+        }
     }
 
     private async Task SendPopularPlacesAsync()

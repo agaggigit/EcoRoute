@@ -536,6 +536,56 @@
             }
         }
 
+        // GARIS RUTE (State D), data dari OSRM lewat MapView.xaml.cs
+        let routeLine = null;
+
+        function showRoute(route) {
+            if (!route || !Array.isArray(route.points) || route.points.length < 2) {
+                return;
+            }
+
+            clearRoute();
+
+            // Garis putih tebal di bawah supaya rute hijau tetap kontras di atas peta
+            routeLine = L.featureGroup([
+                L.polyline(route.points, { color: '#FFFFFF', weight: 9, opacity: 0.9 }),
+                L.polyline(route.points, { color: '#16A34A', weight: 5, opacity: 0.95 })
+            ]).addTo(map);
+
+            showOrigin(route.origin.lat, route.origin.lng);
+
+            // Pin tujuan tanpa animasi flyTo (peta di-fit ke seluruh rute di bawah)
+            if (selectedMarker !== null) {
+                map.removeLayer(selectedMarker);
+            }
+            selectedMarker = L.marker([route.destination.lat, route.destination.lng], {
+                icon: destinationIcon,
+                zIndexOffset: 1000
+            }).addTo(map);
+
+            const popup = document.createElement('div');
+            popup.className = 'location-popup';
+            popup.textContent = route.destination.nama || 'Tujuan';
+            const caption = document.createElement('small');
+            caption.textContent = 'Tujuan';
+            popup.appendChild(caption);
+            selectedMarker.bindPopup(popup, { closeButton: false });
+
+            // Sisakan ruang di kiri untuk card supaya rute tidak tertutup
+            map.fitBounds(routeLine.getBounds(), {
+                paddingTopLeft: [CARD_OFFSET_X * 2 + 40, 60],
+                paddingBottomRight: [60, 60],
+                maxZoom: 17
+            });
+        }
+
+        function clearRoute() {
+            if (routeLine !== null) {
+                map.removeLayer(routeLine);
+                routeLine = null;
+            }
+        }
+
         // MENGATUR IZIN KLIK PETA
         function setOriginSelectionEnabled(enabled) {
             canSelectOrigin = enabled === true;
