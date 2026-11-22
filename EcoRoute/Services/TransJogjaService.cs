@@ -1,9 +1,10 @@
 // Mencari perjalanan Trans Jogja langsung (satu trayek, tanpa pindah bus) dari data trayek
 // OpenStreetMap yang disimpan di Data/trayek-transjogja.json (dibuat tools/ambil_trayek_transjogja.py).
 //
-// Tiap trayek disimpan sebagai jaringan ruas jalan yang dilaluinya. Jalur bus dari halte naik ke
-// halte turun = jalur terpendek di dalam jaringan trayek itu (Dijkstra), jadi garisnya selalu lewat
-// jalan yang memang dilalui trayek tersebut. Urutan halte dari OSM tidak dipakai karena sering berantakan.
+// Tiap trayek disimpan sebagai jaringan berarah dari ruas jalan yang dilaluinya: "searah" hanya boleh
+// ditempuh sesuai urutan simpulnya (arah bus), "ruas" boleh dua arah. Jalur bus dari halte naik ke
+// halte turun = jalur terpendek di jaringan itu (Dijkstra), jadi bus tidak pernah melawan arah.
+// Urutan halte dari OSM tidak dipakai karena sering berantakan.
 using System.IO;
 using System.Text.Json;
 using EcoRoute.Models;
@@ -24,6 +25,11 @@ public class TransJogjaService
 
     // Halte naik / turun yang dicoba per trayek (yang paling dekat)
     private const int MaksKandidatHalte = 5;
+
+    // Di trayek yang berputar, halte "di belakang" baru tercapai setelah satu putaran penuh.
+    // Jalur bus lebih panjang dari (garis lurus antar halte × pengali + tambahan) dianggap tidak masuk akal.
+    public const double PengaliPutaranBus = 3.0;
+    public const double TambahanPutaranBusKm = 1.0;
 
     private static readonly Lazy<TransJogjaService> _default = new(MuatDariFileAplikasi);
 
@@ -85,6 +91,11 @@ public class TransJogjaService
                         continue;
                     }
 
+                    double lurusAntarHalte = JarakKm(halteNaik.Info.Lat, halteNaik.Info.Lng,
+                                                     halteTurun.Info.Lat, halteTurun.Info.Lng);
+                    if (kmBus > lurusAntarHalte * PengaliPutaranBus + TambahanPutaranBusKm)
+                        continue; // harus memutari trayek dulu
+
                     double kmJalanKaki = kmAwal + kmAkhir;
                     if (kmJalanKaki >= jalanKakiLangsungKm)
                         continue; // jalan kaki langsung saja sudah lebih dekat
@@ -132,7 +143,10 @@ public class TransJogjaService
             if (d > jarak[u])
                 continue;
 
-            foreach (var (v, w) in trayek.Tetangga[u])
+            if (!trayek.Tetangga.TryGetValue(u, out var keluar))
+                continue; // ujung jalan satu arah: tidak ada jalan keluar
+
+            foreach (var (v, w) in keluar)
             {
                 double nd = d + w;
                 if (nd < jarak.GetValueOrDefault(v, double.MaxValue))
@@ -198,23 +212,35 @@ public class TransJogjaService
         foreach (JsonElement tr in root.GetProperty("trayek").EnumerateArray())
         {
             var tetangga = new Dictionary<int, List<(int, double)>>();
+            var simpulTrayek = new HashSet<int>();
             void Sambung(int a, int b, double km)
             {
                 if (!tetangga.TryGetValue(a, out var list))
                     tetangga[a] = list = [];
                 list.Add((b, km));
+                simpulTrayek.Add(a);
+                simpulTrayek.Add(b);
             }
 
-            foreach (JsonElement ruas in tr.GetProperty("ruas").EnumerateArray())
+            void BacaRuas(string nama, bool duaArah)
             {
-                int[] s = ruas.EnumerateArray().Select(x => x.GetInt32()).ToArray();
-                for (int i = 0; i + 1 < s.Length; i++)
+                if (!tr.TryGetProperty(nama, out JsonElement daftarRuas))
+                    return;
+                foreach (JsonElement ruas in daftarRuas.EnumerateArray())
                 {
-                    double km = JarakKm(simpul[s[i]][0], simpul[s[i]][1], simpul[s[i + 1]][0], simpul[s[i + 1]][1]);
-                    Sambung(s[i], s[i + 1], km);
-                    Sambung(s[i + 1], s[i], km);
+                    int[] s = ruas.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+                    for (int i = 0; i + 1 < s.Length; i++)
+                    {
+                        double km = JarakKm(simpul[s[i]][0], simpul[s[i]][1], simpul[s[i + 1]][0], simpul[s[i + 1]][1]);
+                        Sambung(s[i], s[i + 1], km);
+                        if (duaArah)
+                            Sambung(s[i + 1], s[i], km);
+                    }
                 }
             }
+
+            BacaRuas("searah", duaArah: false);
+            BacaRuas("ruas", duaArah: true);
 
             var halte = tr.GetProperty("halte").EnumerateArray()
                 .Select(h => new Halte(
@@ -222,7 +248,7 @@ public class TransJogjaService
                                  h.GetProperty("lat").GetDouble(),
                                  h.GetProperty("lng").GetDouble()),
                     h.GetProperty("simpul").GetInt32()))
-                .Where(h => tetangga.ContainsKey(h.Simpul))
+                .Where(h => simpulTrayek.Contains(h.Simpul))
                 .ToList();
 
             if (halte.Count < 2)

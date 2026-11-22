@@ -338,7 +338,8 @@ public partial class MapView : UserControl
                     from = s.IndeksAwal,
                     to = s.IndeksAkhir,
                     level = s.Tingkat.ToString(),
-                    ratio = s.RasioKecepatan
+                    ratio = s.RasioKecepatan,
+                    live = s.AdaDataLive
                 }).ToList()
                 : null;
 

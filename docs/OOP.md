@@ -84,6 +84,8 @@ Kemacetan bukan input pengguna, karena pengguna tidak tahu kondisi tiap ruas jal
 
 1. `TrafficService.BagiSegmen` memecah garis rute OSRM menjadi segmen sama panjang (sekitar 1 segmen per km, minimal 3, maksimal 10).
 2. Untuk titik tengah tiap segmen, TomTom Traffic Flow API memberi kecepatan saat ini dan kecepatan normal. Rasionya diubah oleh `TingkatKemacetanInfo.DariRasioKecepatan`: ≥ 80% Lancar, ≥ 60% Sedang, ≥ 40% Padat, di bawahnya Macet. Jalan yang ditutup dihitung rasio 0. Segmen yang datanya gagal diambil diisi rata-rata segmen lain.
+   - **Tanpa data live.** Di jalan kecil (FRC3 ke bawah), TomTom sering memberi kecepatan saat ini persis sama dengan kecepatan normal dan confidence 1. Saat diuji di Yogyakarta (Malioboro dan jalan dalam kota), hasilnya selalu begitu, sedangkan jalan utama (FRC0–2) memberi nilai yang berubah-ubah. Segmen seperti itu, dan segmen yang request-nya gagal, ditandai `AdaDataLive = false`. Emisinya tetap dihitung dengan rasionya (lancar), tetapi di peta digambar abu-abu ("Tanpa data live"), supaya tidak tampak seperti hasil pengukuran.
+   - **Ringkasan di card** (`KondisiLaluLintas.Ringkasan`) menyebut panjang ruas yang tersendat per tingkat, misalnya "Tersendat 8,4 km dari 17,0 km (Sedang 8,4 km)", dan panjang ruas tanpa data live. Rata-rata seluruh rute bisa tetap Lancar walau sebagian ruas kuning, jadi rata-rata hanya disebut kalau tidak ada ruas yang tersendat.
 3. `KondisiLaluLintas.HitungEmisi` menghitung emisi tiap segmen dengan tingkat kemacetannya sendiri, lalu menjumlahkannya. Contoh: 6 km lancar + 4 km macet dihitung sebagai `HitungEmisi(6, Lancar) + HitungEmisi(4, Macet)`, bukan memakai satu tingkat rata-rata untuk seluruh 10 km.
 4. Waktu tempuh memakai rasio kecepatan asli: segmen dengan kecepatan tinggal setengah butuh waktu 2× (dibatasi maksimal 4×). Pengali seluruh rute adalah rata-rata pengali segmen yang ditimbang dengan panjangnya.
 
@@ -143,8 +145,10 @@ Jalur Bus mengikuti trayek Trans Jogja asli kalau ada **satu trayek yang langsun
 **Cara mencari rute** (`Services/TransJogjaService.cs`):
 
 1. Cari halte dalam jarak 1 km (garis lurus) dari titik awal dan dari tujuan. Untuk tiap trayek dicoba maksimal 5 halte terdekat di tiap ujung.
-2. Tiap trayek disimpan sebagai jaringan ruas jalan yang dilaluinya. Jalur bus dari halte naik ke halte turun adalah jalur terpendek di dalam jaringan itu (algoritma Dijkstra), jadi garisnya pasti lewat jalan yang memang dilalui trayek tersebut.
-3. Dari semua kombinasi trayek, halte naik, dan halte turun, dipilih yang paling cepat (jalan kaki 5 km/jam, bus ±20 km/jam). Kombinasi yang total jalan kakinya lebih jauh daripada langsung berjalan ke tujuan dilewati.
+2. Tiap trayek disimpan sebagai jaringan **berarah** dari ruas jalan yang dilaluinya. Jalur bus dari halte naik ke halte turun adalah jalur terpendek di dalam jaringan itu (algoritma Dijkstra), jadi garisnya pasti lewat jalan yang memang dilalui trayek tersebut, sesuai arah bus. Misalnya bus tidak akan ditempuh ke utara di Jl. Margo Utomo yang satu arah ke selatan.
+3. Dari semua kombinasi trayek, halte naik, dan halte turun, dipilih yang paling cepat (jalan kaki 5 km/jam, bus ±20 km/jam). Ada dua jenis kombinasi yang dilewati:
+   - total jalan kakinya lebih jauh daripada langsung berjalan ke tujuan;
+   - jalur busnya lebih panjang dari 3 × jarak garis lurus antar halte + 1 km. Pada trayek yang berputar, halte "di belakang" baru tercapai setelah satu putaran penuh, dan naik bus seperti itu tidak masuk akal.
 4. Jarak jalan kaki = jarak garis lurus × 1.3, untuk belokan dan menyeberang jalan.
 
 **Emisi dan waktu.** Hanya bagian naik bus yang beremisi. Durasi bagian bus dihitung dari kecepatan rata-rata rute mobil untuk perjalanan yang sama, lalu dipakai rumus bus di atas (× 1.3 untuk halte, × kemacetan, + 10 menit menunggu), ditambah waktu jalan kaki. Kemacetan per segmen dari TomTom diukur di rute jalan raya, jadi untuk bagian bus dipakai rata-rata emisi per km-nya.
@@ -154,7 +158,8 @@ Jalur Bus mengikuti trayek Trans Jogja asli kalau ada **satu trayek yang langsun
 **Batasan yang diketahui:**
 
 - Belum mendukung pindah bus (transit). Perjalanan yang butuh dua trayek memakai perkiraan jalan raya.
-- Arah jalan satu arah belum diperhitungkan. Jalur bus pergi dan pulang bisa saja berbeda di jalan satu arah seperti Malioboro, tetapi aplikasi memakai jalur terpendek di jaringan trayek ke dua arah.
+- Arah tiap jalan diambil dari tag `oneway` OpenStreetMap (atau `junction=roundabout`), lalu role `forward`/`backward`, lalu urutan member relasi. Jalan yang arahnya tidak bisa ditentukan dianggap dua arah. Urutan member relasi Trans Jogja di OSM sering terbalik atau melompat, jadi tag `oneway` yang paling diandalkan.
+- Di beberapa persimpangan, way penghubungnya tidak ikut di relasi OSM. Skrip menyambung ujung jalan satu arah ke awal jalan satu arah lain yang jaraknya ≤ 100 m. Celah yang lebih jauh dibiarkan, sehingga sebagian halte di trayek 1B, 4A, 9, 10, dan 11 tidak saling terjangkau. Perjalanan yang butuh halte seperti itu memakai perkiraan jalan raya, bukan rute yang melawan arah. Skrip mencetak porsi halte yang terjangkau untuk tiap trayek.
 - Urutan halte di OpenStreetMap sering tidak berurutan, jadi aplikasi tidak memakai urutan itu. Akibatnya jumlah halte yang dilewati tidak ditampilkan.
 - Data OpenStreetMap dibuat komunitas dan bisa tertinggal dari perubahan trayek terbaru. Untuk memperbarui, jalankan ulang skrip di atas.
 
