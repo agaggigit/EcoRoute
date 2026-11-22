@@ -275,8 +275,11 @@ public partial class MainViewModel : BaseViewModel
         get => _currentState;
         set
         {
-            if (SetProperty(ref _currentState, value))
-                CommandManager.InvalidateRequerySuggested();
+            if (!SetProperty(ref _currentState, value))
+                return;
+
+            CommandManager.InvalidateRequerySuggested();
+            TutupSemuaSaran();
         }
     }
 
@@ -440,7 +443,80 @@ public partial class MainViewModel : BaseViewModel
     public string TitikTujuan
     {
         get => _titikTujuan;
-        set => SetProperty(ref _titikTujuan, value);
+        set
+        {
+            if (!SetProperty(ref _titikTujuan, value))
+                return;
+
+            // Teks tujuan diubah -> tempat yang dipilih dari saran tidak berlaku lagi
+            if (TujuanTerpilih is not null &&
+                !string.Equals(
+                    (value ?? string.Empty).Trim(),
+                    TujuanTerpilih.Nama,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                TujuanTerpilih = null;
+            }
+        }
+    }
+
+    // ==========================================
+    // SARAN LOKASI SAAT MENGETIK (search bar, titik awal, tujuan)
+    // ==========================================
+    // Daftar saran tiap kolom. View memanggil PerbaruiAsync saat user mengetik (lihat SaranLokasiBehavior).
+    public SaranLokasiViewModel SaranCari { get; }
+    public SaranLokasiViewModel SaranAsal { get; }
+    public SaranLokasiViewModel SaranTujuan { get; }
+
+    // Tujuan yang dipilih dari saran: dipakai langsung saat Hitung Emisi tanpa dicari ulang
+    private Place? _tujuanTerpilih;
+    public Place? TujuanTerpilih
+    {
+        get => _tujuanTerpilih;
+        private set => SetProperty(ref _tujuanTerpilih, value);
+    }
+
+    // Saran titik awal dipilih -> langsung jadi pratinjau (penanda Titik Asal + peta bergeser)
+    private void PilihSaranAsal(Place place)
+    {
+        _teksPratinjauAsal = place.Nama;
+        TitikAsal = place.Nama;
+        PratinjauAsal = place;
+        Notifikasi = string.Empty;
+    }
+
+    private void PilihSaranTujuan(Place place)
+    {
+        TitikTujuan = place.Nama;
+        TujuanTerpilih = place;
+    }
+
+    private void TutupSemuaSaran()
+    {
+        // Bisa terpanggil dari setter CurrentState sebelum konstruktor selesai membuat daftar saran
+        SaranCari?.Tutup();
+        SaranAsal?.Tutup();
+        SaranTujuan?.Tutup();
+    }
+
+    // Tukar titik awal & tujuan, termasuk lokasi yang sudah dipilih / dipratinjau
+    private void ExecuteTukar(object? parameter)
+    {
+        Place? asalLama = PratinjauAsal;
+        Place? tujuanLama = TujuanTerpilih;
+
+        (TitikAsal, TitikTujuan) = (TitikTujuan, TitikAsal);
+
+        if (tujuanLama is not null)
+        {
+            _teksPratinjauAsal = TitikAsal.Trim();
+            PratinjauAsal = tujuanLama;
+        }
+
+        if (asalLama is not null)
+            TujuanTerpilih = asalLama with { Nama = TitikTujuan.Trim() };
+
+        TutupSemuaSaran();
     }
 
     public string SelectedModa
@@ -537,7 +613,11 @@ public partial class MainViewModel : BaseViewModel
     public ICommand PilihTempatCommand { get; }
     public ICommand PilihKategoriCommand { get; }
 
-    public MainViewModel(int userId, TransJogjaService? transJogja = null)
+    public MainViewModel(
+        int userId,
+        TransJogjaService? transJogja = null,
+        Func<string, CancellationToken, Task<IReadOnlyList<Place>>>? cariSaranOnline = null,
+        TimeSpan? jedaSaran = null)
     {
         if (userId <= 0)
         {
@@ -548,6 +628,13 @@ public partial class MainViewModel : BaseViewModel
 
         _penggunaAktifId = userId;
         _transJogja = transJogja ?? TransJogjaService.Default;
+
+        Func<string, CancellationToken, Task<IReadOnlyList<Place>>> online =
+            cariSaranOnline ?? ((teks, ct) => _routingService.SaranTempatAsync(teks, ct));
+
+        SaranCari = new SaranLokasiViewModel(TempatPopuler, online, ExecutePilihTempat, jedaSaran);
+        SaranAsal = new SaranLokasiViewModel(TempatPopuler, online, PilihSaranAsal, jedaSaran);
+        SaranTujuan = new SaranLokasiViewModel(TempatPopuler, online, PilihSaranTujuan, jedaSaran);
 
         PilihTempatCommand = new RelayCommand(
             ExecutePilihTempat,
@@ -577,9 +664,7 @@ public partial class MainViewModel : BaseViewModel
         MulaiRuteCommand =
             new RelayCommand(ExecuteMulaiRute);
 
-        TukarCommand = new RelayCommand(
-            _ => (TitikAsal, TitikTujuan) =
-                (TitikTujuan, TitikAsal));
+        TukarCommand = new RelayCommand(ExecuteTukar);
 
         HitungEmisiCommand = new RelayCommand(
             ExecuteHitungEmisi,
@@ -873,7 +958,8 @@ public partial class MainViewModel : BaseViewModel
                 TitikAsal,
                 "Titik awal");
 
-            Place tujuan = await CariKoordinatAsync(
+            // Tujuan yang dipilih dari daftar saran juga tidak perlu dicari ulang
+            Place tujuan = TujuanTerpilih ?? await CariKoordinatAsync(
                 TitikTujuan,
                 "Tujuan");
 
