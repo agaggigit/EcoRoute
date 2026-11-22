@@ -627,7 +627,25 @@
                 L.polyline(route.points, { color: '#FFFFFF', weight: 9, opacity: 0.9 })
             ];
 
-            if (Array.isArray(route.segments) && route.segments.length > 0) {
+            if (route.bus) {
+                // Trayek Trans Jogja: jalan kaki (putus-putus) -> bus (biru) -> jalan kaki
+                const b = route.bus;
+                const naik = [b.halteNaik.lat, b.halteNaik.lng];
+                const turun = [b.halteTurun.lat, b.halteTurun.lng];
+                const walkStyle = { color: '#64748B', weight: 4, opacity: 0.9, dashArray: '2 8', lineCap: 'round' };
+
+                layers.push(L.polyline([[route.origin.lat, route.origin.lng], naik], walkStyle)
+                    .bindTooltip('Jalan kaki ke halte', { sticky: true }));
+                layers.push(L.polyline([turun, [route.destination.lat, route.destination.lng]], walkStyle)
+                    .bindTooltip('Jalan kaki ke tujuan', { sticky: true }));
+                layers.push(L.polyline(route.points, { color: BUS_COLOR, weight: 5, opacity: 0.95 })
+                    .bindTooltip(b.label, { sticky: true }));
+                layers.push(halteMarker(naik, 'Naik di ' + b.halteNaik.nama));
+                layers.push(halteMarker(turun, 'Turun di ' + b.halteTurun.nama));
+
+                showTrafficLegend(false);
+                showBusLegend(b.label);
+            } else if (Array.isArray(route.segments) && route.segments.length > 0) {
                 // Data live TomTom: tiap segmen diwarnai sesuai tingkat kemacetannya
                 route.segments.forEach(function (s) {
                     const style = TRAFFIC_STYLE[s.level] || TRAFFIC_STYLE.Lancar;
@@ -683,6 +701,54 @@
                 routeLine = null;
             }
             showTrafficLegend(false);
+            showBusLegend(null);
+        }
+
+        // TRAYEK TRANS JOGJA
+        const BUS_COLOR = '#2563EB';
+
+        function halteMarker(latlng, teks) {
+            return L.circleMarker(latlng, {
+                radius: 7,
+                color: BUS_COLOR,
+                weight: 3,
+                fillColor: '#FFFFFF',
+                fillOpacity: 1
+            }).bindTooltip(teks, { permanent: true, direction: 'top', offset: [0, -8] });
+        }
+
+        // Legenda saat rute Bus mengikuti trayek
+        let busLegend = null;
+
+        function showBusLegend(label) {
+            if (busLegend !== null) {
+                busLegend.remove();
+                busLegend = null;
+            }
+            if (!label) return;
+
+            busLegend = L.control({ position: 'topright' });
+            busLegend.onAdd = function () {
+                const div = L.DomUtil.create('div', 'traffic-legend');
+                const title = document.createElement('div');
+                title.className = 'traffic-legend-title';
+                title.textContent = 'Rute bus';
+                div.appendChild(title);
+
+                [[label, BUS_COLOR, false], ['Jalan kaki', '#64748B', true]].forEach(function (item) {
+                    const row = document.createElement('div');
+                    row.className = 'traffic-legend-row';
+                    const swatch = document.createElement('span');
+                    swatch.style.background = item[2]
+                        ? 'repeating-linear-gradient(90deg, ' + item[1] + ' 0 3px, transparent 3px 7px)'
+                        : item[1];
+                    row.appendChild(swatch);
+                    row.appendChild(document.createTextNode(item[0]));
+                    div.appendChild(row);
+                });
+                return div;
+            };
+            busLegend.addTo(map);
         }
 
         // WARNA KEMACETAN (nama level sama dengan enum TingkatKemacetan di C#)

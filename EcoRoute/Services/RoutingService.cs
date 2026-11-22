@@ -150,18 +150,42 @@ public class RoutingService
         return new RouteResult(asal, tujuan, jarakKm, durasiMenit, titik, profil);
     }
 
+    // Rute Bus mengikuti trayek Trans Jogja. Durasi bagian bus kalau lancar diambil dari kecepatan
+    // rata-rata rute jalan raya (OSRM) untuk perjalanan yang sama, supaya sebanding dengan mobil.
+    public static RouteResult BuatRuteBus(RuteBus bus, RouteResult jalanRaya)
+    {
+        double kecepatanKmPerMenit = jalanRaya.DurasiMenit > 0
+            ? jalanRaya.JarakKm / jalanRaya.DurasiMenit
+            : 0.5; // 30 km/jam kalau durasi tidak ada
+
+        return new RouteResult(
+            jalanRaya.Asal,
+            jalanRaya.Tujuan,
+            bus.JarakTotalKm,
+            bus.JarakBusKm / kecepatanKmPerMenit,
+            bus.TitikBus,
+            ProfilRute.TrayekBus,
+            bus);
+    }
+
     // Estimasi waktu tempuh per moda. rute = rute milik moda itu (lihat RuteSemuaModa.Untuk).
     // pengaliKemacetan dari KondisiLaluLintas.PengaliWaktu (1.0 = lancar), hanya untuk jalan raya:
     // - Mobil : durasi x pengali kemacetan
     // - Motor : hanya separuh tambahan waktu akibat macet (motor bisa menyelip)
     // - Bus   : durasi x pengali halte x pengali kemacetan + waktu menunggu bus
+    //           (+ jalan kaki ke / dari halte kalau rutenya mengikuti trayek Trans Jogja)
     // - Sepeda / Jalan Kaki : durasi profilnya sendiri, tidak terpengaruh macet
     public static int EstimasiWaktuMenit(string moda, RouteResult rute, double pengaliKemacetan = 1.0)
     {
         ProfilRute? profil = ProfilUntuk(moda);
         double menit;
 
-        if (profil is ProfilRute.Sepeda or ProfilRute.JalanKaki)
+        if (rute is { Profil: ProfilRute.TrayekBus, Bus: not null })
+        {
+            menit = rute.DurasiMenit * PengaliHalteBus * pengaliKemacetan + MenitTungguBus +
+                    rute.Bus.JarakJalanKakiKm / KecepatanCadanganJalanKaki * 60.0;
+        }
+        else if (profil is ProfilRute.Sepeda or ProfilRute.JalanKaki)
         {
             // Rute cadangan (jalan raya) tidak punya durasi untuk profil ini -> pakai kecepatan rata-rata
             double kecepatan = profil == ProfilRute.Sepeda ? KecepatanCadanganSepeda : KecepatanCadanganJalanKaki;

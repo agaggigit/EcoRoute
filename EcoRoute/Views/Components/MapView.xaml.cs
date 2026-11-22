@@ -342,11 +342,23 @@ public partial class MapView : UserControl
                 }).ToList()
                 : null;
 
+            // Bus lewat trayek Trans Jogja: garis bus + jalan kaki ke / dari halte + penanda halte
+            RuteBus? bus = rute.Bus;
+            var busData = bus == null
+                ? null
+                : new
+                {
+                    label = $"Trans Jogja {bus.KodeTrayek}",
+                    halteNaik = new { lat = bus.HalteNaik.Lat, lng = bus.HalteNaik.Lng, nama = bus.HalteNaik.Nama },
+                    halteTurun = new { lat = bus.HalteTurun.Lat, lng = bus.HalteTurun.Lng, nama = bus.HalteTurun.Nama }
+                };
+
             string routeData = JsonSerializer.Serialize(
                 new
                 {
                     points = rute.Titik,
                     segments,
+                    bus = busData,
                     origin = new { lat = rute.Asal.Lat, lng = rute.Asal.Lng, nama = rute.Asal.Nama },
                     destination = new { lat = rute.Tujuan.Lat, lng = rute.Tujuan.Lng, nama = rute.Tujuan.Nama }
                 }

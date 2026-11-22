@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <Content Include="Maps\map.html" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Trayek & halte Trans Jogja dari OpenStreetMap (dibuat tools/ambil_trayek_transjogja.py) -->
+    <Content Include="Data\trayek-transjogja.json" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
 
 <ItemGroup>

@@ -1,6 +1,6 @@
 <!--
     State C, L, E - Input rute + loading + error. Pemilik: Akio.
-    Binding: DaftarModa (Nama, Ikon), SelectedModa, RingkasanLaluLintas,
+    Binding: DaftarModa (Nama, Ikon), SelectedModa, RingkasanLaluLintas, KeteranganBus,
              TitikAsal, TitikTujuan, ErrorMessage, CurrentState,
              TukarCommand, HitungEmisiCommand (C -> L -> D/E), ResetCommand, TutupCommand (-> A)
     Hasil (State D) ada di EmissionResultView, ditempel di bagian bawah card ini.
@@ -128,6 +128,15 @@
                 <TextBlock Text="{Binding RingkasanLaluLintas}" Style="{StaticResource CaptionText}"
                            Foreground="{StaticResource TextPrimaryBrush}"
                            TextWrapping="Wrap" Margin="0,2,0,0"/>
+
+                <!-- Trayek Trans Jogja (hanya saat moda Bus dipilih) -->
+                <StackPanel Margin="0,10,0,0"
+                            Visibility="{Binding AdaKeteranganBus, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Rute bus" Style="{StaticResource CaptionText}"/>
+                    <TextBlock Text="{Binding KeteranganBus}" Style="{StaticResource CaptionText}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
             </StackPanel>
 
             <!-- Tombol hitung (C, D, E) + reset (D, E) -->
