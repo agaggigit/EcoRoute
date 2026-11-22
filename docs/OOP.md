@@ -31,8 +31,9 @@ File: `EcoRoute/Models/ModaTransportasi.cs`, `EcoRoute/Models/TingkatKemacetan.c
 | Mobil | `KendaraanBermotor` | 0.192 | 1.35 |
 | Motor | `KendaraanBermotor` | 0.103 | 1.15 |
 | Bus | `KendaraanBermotor` | 0.089 | 1.25 |
-| Kereta | `KendaraanBermotor` | 0.041 | 1.00 (tidak terpengaruh) |
 | Sepeda, Jalan Kaki | `TransportasiAktif` | – (emisi selalu 0) | – |
+
+Kereta sempat menjadi moda keenam, tetapi dihapus. Tidak ada layanan routing kereta yang gratis, dan jalur KRL hanya melewati beberapa stasiun di Yogyakarta, sehingga kebanyakan perjalanan dalam kota tidak bisa ditempuh dengan kereta. Rute kereta multimoda (misalnya jalan kaki ke stasiun, naik KRL, lalu naik ojek ke tujuan) menjadi bahan pengembangan selanjutnya.
 
 Nilai diambil dari tabel `emission_factor` di PostgreSQL. Kalau database tidak tersambung, aplikasi memakai nilai cadangan yang sama di `MainViewModel`.
 
@@ -40,7 +41,7 @@ Nilai diambil dari tabel `emission_factor` di PostgreSQL. Kalau database tidak t
 
 Spesifikasi awal mencontohkan satu subclass untuk setiap kendaraan. Desain tersebut diganti karena alasan berikut:
 
-1. **Rumus Mobil, Motor, Bus, dan Kereta sama persis**: `jarak × faktor dasar × penalti`. Yang berbeda hanya angkanya. Membuat empat subclass dengan isi `HitungEmisi` yang identik berarti duplikasi kode tanpa perilaku baru. Perbedaan angka cukup disimpan sebagai data (field yang diisi dari database).
+1. **Rumus Mobil, Motor, dan Bus sama persis**: `jarak × faktor dasar × penalti`. Yang berbeda hanya angkanya. Membuat tiga subclass dengan isi `HitungEmisi` yang identik berarti duplikasi kode tanpa perilaku baru. Perbedaan angka cukup disimpan sebagai data (field yang diisi dari database).
 2. **Perilaku yang benar-benar berbeda** hanya ada dua: kendaraan bermotor (punya emisi dan penalti kemacetan) dan transportasi aktif (emisi selalu nol). Karena itu hierarki dibagi menurut perilaku, bukan menurut nama kendaraan.
 3. **Data-driven**: moda baru dengan rumus yang sama, misalnya Taksi, cukup ditambahkan satu baris di tabel `emission_factor` tanpa mengubah kode. Subclass baru hanya dibutuhkan untuk rumus baru, misalnya kendaraan listrik.
 4. Nama class memakai Bahasa Indonesia supaya konsisten dengan seluruh kode dan skema database.
@@ -101,6 +102,38 @@ Contoh untuk satu segmen Mobil sejauh 10 km (faktor 0.192, penalti 1.35). Pengal
 
 Pengali waktu hanya berlaku untuk moda yang lewat jalan raya (Mobil, Motor, Bus).
 
+## Rute dan waktu tempuh per moda
+
+Saat *Hitung Emisi* ditekan, `RoutingService.HitungSemuaRuteAsync` mengambil tiga rute sekaligus dari server OSRM komunitas OpenStreetMap: jalan raya, sepeda, dan jalan kaki. Tiap moda memakai rute sesuai jalurnya (`RoutingService.ProfilUntuk`), sehingga jarak dan emisinya dihitung dari rutenya sendiri. Garis rute di peta juga ikut berganti saat moda diganti.
+
+| Moda | Rute | Waktu tempuh |
+|---|---|---|
+| Mobil | Jalan raya | Durasi rute × pengali kemacetan |
+| Motor | Jalan raya | Durasi rute × (1 + separuh tambahan akibat macet) |
+| Bus | Jalan raya | Durasi rute × 1.3 × pengali kemacetan + 10 menit |
+| Sepeda | Jalur sepeda | Durasi rute sepeda, tidak terpengaruh macet |
+| Jalan Kaki | Jalur pejalan kaki | Durasi rute jalan kaki, tidak terpengaruh macet |
+
+Alasan tiap rumus:
+
+- **Motor memakai rute mobil.** Sudah diuji dengan layanan routing lain (Valhalla) yang punya profil motor, dan hasilnya sama dengan mobil untuk rute-rute di Yogyakarta. Di data OpenStreetMap, perbedaan motor dan mobil hampir hanya soal jalan tol. Google Maps punya mode motor, tetapi API-nya berbayar. Meskipun rutenya sama, motor tetap berbeda dari mobil dalam emisi (hampir setengahnya) dan penalti kemacetan.
+- **Motor hanya kena separuh tambahan waktu akibat macet**, karena motor bisa menyelip di antara kendaraan. Contoh: kalau macet membuat mobil 2× lebih lama (tambah 100%), motor hanya 1.5× lebih lama (tambah 50%). Angka "separuh" ini adalah asumsi.
+- **Bus dikali sekaligus ditambah**, karena ada dua jenis waktu tambahan:
+  - *Dikali 1.3*: waktu berhenti di halte sepanjang jalan. Makin jauh perjalanan, makin banyak halte yang dilewati, sehingga waktunya sebanding dengan jarak.
+  - *Ditambah 10 menit*: waktu menunggu bus datang. Waktu ini tetap per perjalanan, tidak tergantung jarak. Nilai 10 menit diambil dari kira-kira setengah jarak kedatangan bus Trans Jogja (15–20 menit).
+  - Kedua angka adalah asumsi, karena data trayek dan jadwal Trans Jogja tidak tersedia gratis dalam bentuk yang bisa dipakai aplikasi.
+- **Sepeda dan jalan kaki** memakai durasi dari profil rutenya sendiri. Kalau rute sepeda atau jalan kaki gagal diambil, aplikasi memakai rute jalan raya dengan kecepatan rata-rata 15 km/jam (sepeda) atau 5 km/jam (jalan kaki).
+
+Contoh UGM → Malioboro saat lancar (data asli):
+
+| Moda | Jarak | Waktu | Emisi |
+|---|---|---|---|
+| Mobil | 3.62 km | 6 menit | 0.695 kg |
+| Motor | 3.62 km | 6 menit | 0.373 kg |
+| Bus | 3.62 km | 18 menit | 0.322 kg |
+| Sepeda | 3.25 km | 15 menit | 0 kg |
+| Jalan Kaki | 3.43 km | 46 menit | 0 kg |
+
 ## Hubungan dengan database
 
 Parameter konstruktor `KendaraanBermotor` sama dengan kolom tabel `emission_factor` (`faktor_emisi_dasar`, `faktor_penalti_kemacetan`). `DatabaseService.GetModaTransportasiAsync` membaca setiap baris tabel lalu membuat objek `KendaraanBermotor` atau `TransportasiAktif` sesuai kolom `kategori`.
@@ -125,7 +158,7 @@ Unit test (xUnit) ada di `EcoRoute.Tests/`:
 |---|---|
 | `ModaTransportasiTests.cs` | Rumus emisi, penalti kemacetan bertahap, emisi nol untuk transportasi aktif, penolakan nilai negatif, pemanggilan polimorfik pada daftar moda campuran |
 | `TingkatKemacetanTests.cs` | Tebakan kondisi lalu lintas dari jam, waktu tempuh saat macet |
-| `RoutingServiceTests.cs` | Estimasi waktu tempuh per moda |
+| `RoutingServiceTests.cs` | Jalur tiap moda, estimasi waktu tempuh per moda (separuh efek macet untuk motor, rumus bus, durasi profil sepeda dan jalan kaki) |
 | `EcoScoreCalculatorTests.cs` | CO₂ dihemat per moda, tidak negatif saat macet, moda tidak dikenal, ambang level, progres, setara pohon |
 
 ```bash

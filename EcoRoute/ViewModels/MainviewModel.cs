@@ -43,13 +43,15 @@ public partial class MainViewModel : BaseViewModel
     private string _insightText = string.Empty;
     private string _errorMessage = string.Empty;
 
+    // Rute jalan raya, sepeda, dan jalan kaki dari Hitung Emisi terakhir. null = belum ada rute.
+    private RuteSemuaModa? _ruteSemuaModa;
+
     // Nilai cadangan sebelum data moda berhasil dimuat dari SQLite.
     private IReadOnlyList<ModaTransportasi> _daftarModa =
     [
         new KendaraanBermotor("Mobil", "\uE804", 0.1920, 1.35),
         new KendaraanBermotor("Motor", "\U0001F6F5", 0.1030, 1.15),
         new KendaraanBermotor("Bus", "\uE806", 0.0890, 1.25),
-        new KendaraanBermotor("Kereta", "\uE7C0", 0.0410),
         new TransportasiAktif("Sepeda", "\U0001F6B2"),
         new TransportasiAktif("Jalan Kaki", "\uE805"),
     ];
@@ -349,9 +351,11 @@ public partial class MainViewModel : BaseViewModel
         get => _selectedModa;
         set
         {
+            // Ganti moda saat hasil sudah tampil -> rute di peta & jarak ikut moda baru, lalu hitung ulang
             if (SetProperty(ref _selectedModa, value) &&
                 CurrentState == AppState.StateD_RouteResult)
             {
+                TampilkanRuteModaTerpilih();
                 HitungUlangEmisi();
             }
         }
@@ -476,8 +480,12 @@ public partial class MainViewModel : BaseViewModel
     {
         var database = new SqliteDatabaseService();
 
+        // Hanya moda yang punya jalur (lihat RoutingService.ProfilUntuk). Kereta sudah dihapus,
+        // tapi barisnya bisa masih ada di database lama karena dipakai riwayat perjalanan.
         List<ModaTransportasi> modaDariDb =
-            await database.GetModaTransportasiAsync();
+            (await database.GetModaTransportasiAsync())
+            .Where(m => RoutingService.ProfilUntuk(m.Nama) is not null)
+            .ToList();
 
         if (modaDariDb.Count == 0)
         {
@@ -742,22 +750,25 @@ public partial class MainViewModel : BaseViewModel
                     "Titik awal dan tujuan berada di lokasi yang sama.");
             }
 
-            RouteResult rute =
-                await _routingService.HitungRuteAsync(
+            // Rute jalan raya, sepeda, dan jalan kaki diambil sekaligus
+            RuteSemuaModa semuaRute =
+                await _routingService.HitungSemuaRuteAsync(
                     asal,
                     tujuan);
 
-            await AmbilLaluLintasAsync(rute);
+            // Kemacetan hanya relevan untuk jalan raya (Mobil, Motor, Bus)
+            await AmbilLaluLintasAsync(semuaRute.JalanRaya);
 
-            JarakKm = rute.JarakKm;
-            HasilRute = rute;
+            _ruteSemuaModa = semuaRute;
+            TampilkanRuteModaTerpilih();
 
             HitungUlangEmisi();
 
             CurrentState =
                 AppState.StateD_RouteResult;
 
-            await SimpanPerjalananAsync(rute);
+            if (HasilRute is not null)
+                await SimpanPerjalananAsync(HasilRute);
         }
         catch (RoutingException ex)
         {
@@ -771,6 +782,34 @@ public partial class MainViewModel : BaseViewModel
 
             CurrentState = AppState.StateE_Error;
         }
+    }
+
+    // Rute milik suatu moda (Sepeda & Jalan Kaki punya jalur sendiri, sisanya jalan raya)
+    private RouteResult? RuteUntuk(string moda) =>
+        _ruteSemuaModa?.Untuk(RoutingService.ProfilUntuk(moda) ?? ProfilRute.JalanRaya);
+
+    // Peta (lewat HasilRute) dan jarak mengikuti moda yang sedang dipilih
+    private void TampilkanRuteModaTerpilih()
+    {
+        RouteResult? rute = RuteUntuk(SelectedModa);
+        if (rute is null)
+            return;
+
+        HasilRute = rute;
+        JarakKm = rute.JarakKm;
+    }
+
+    // Emisi satu moda dengan jarak rutenya sendiri. Jalan raya memakai kemacetan per segmen.
+    private double HitungEmisiModa(ModaTransportasi moda)
+    {
+        RouteResult? rute = RuteUntuk(moda.Nama);
+        if (rute is null)
+            return moda.HitungEmisi(JarakKm);
+
+        if (rute.Profil == ProfilRute.JalanRaya && LaluLintas is not null)
+            return LaluLintas.HitungEmisi(moda);
+
+        return moda.HitungEmisi(rute.JarakKm);
     }
 
     // Kemacetan per segmen dari TomTom. Gagal / tanpa key -> tebakan dari jam
@@ -826,11 +865,11 @@ public partial class MainViewModel : BaseViewModel
 
     private void HitungUlangEmisi()
     {
-        // Emisi tiap moda dihitung per segmen sesuai kondisi lalu lintasnya masing-masing
+        // Tiap moda memakai jarak rutenya sendiri; jalan raya dihitung per segmen sesuai kemacetannya
         var emisiPerModa = DaftarModa
             .Select(m => (
                 Moda: m,
-                Emisi: LaluLintas?.HitungEmisi(m) ?? m.HitungEmisi(JarakKm)))
+                Emisi: HitungEmisiModa(m)))
             .ToList();
 
         double emisiMax =
@@ -968,6 +1007,7 @@ public partial class MainViewModel : BaseViewModel
 
     private void ResetLaluLintas()
     {
+        _ruteSemuaModa = null;
         LaluLintas = null;
         RingkasanLaluLintas = string.Empty;
     }
