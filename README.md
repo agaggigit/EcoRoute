@@ -8,8 +8,8 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 
 - **Peta interaktif** (Leaflet + OpenStreetMap) dengan pin tempat populer Yogyakarta dan filter kategori.
 - **Pencarian tempat** lewat Nominatim (OpenStreetMap).
-- **Rute asli** (jarak, durasi, dan garis rute) dari OSRM. Titik awal bisa diketik atau dipilih dengan klik di peta.
-- **Perbandingan emisi 6 moda**: Mobil, Motor, Bus, Kereta, Sepeda, Jalan Kaki, beserta saran moda yang lebih hemat.
+- **Rute asli per moda** (jarak, durasi, dan garis rute) dari OSRM: jalan raya untuk Mobil, Motor, dan Bus, serta jalur khusus untuk Sepeda dan Jalan Kaki. Titik awal bisa diketik atau dipilih dengan klik di peta.
+- **Perbandingan emisi 5 moda**: Mobil, Motor, Bus, Sepeda, Jalan Kaki, masing-masing dengan jarak rutenya sendiri, beserta saran moda yang lebih hemat.
 - **Penalti kemacetan**: kondisi Lancar, Sedang, Padat, atau Macet memengaruhi emisi dan waktu tempuh kendaraan bermotor.
 - **Riwayat perjalanan** tersimpan di PostgreSQL dan bisa dilihat dari menu *Riwayat*.
 - **Penanganan error** yang ramah pengguna untuk koneksi internet terputus, lokasi tidak ditemukan, atau database tidak tersambung.
@@ -102,9 +102,9 @@ Bisa juga dengan membuka `EcoRoute.slnx` di Visual Studio 2026 (mendukung .NET 1
 4. **Pilih moda.** Kondisi lalu lintas tidak perlu dipilih: saat rute dihitung, kemacetan tiap ruas diambil live dari TomTom (kalau API key diatur). Kalau TomTom tidak bisa dihubungi, muncul notif singkat dan kemacetan ditebak dari jam.
 5. **Tekan *Hitung Emisi*.** Garis rute tampil di peta, dan card menampilkan:
    - total emisi CO₂, jarak, dan estimasi waktu tempuh,
-   - perbandingan emisi keenam moda (moda paling hemat ditandai),
+   - perbandingan emisi kelima moda (moda paling hemat ditandai),
    - saran moda alternatif dan tambahan emisi akibat kemacetan.
-6. Ganti moda untuk menghitung ulang secara langsung tanpa memanggil ulang API.
+6. Ganti moda untuk menghitung ulang secara langsung tanpa memanggil ulang API. Garis rute di peta ikut berganti, misalnya ke jalur sepeda saat memilih Sepeda.
 7. Buka menu **Riwayat** di rail kiri untuk melihat perjalanan yang tersimpan beserta total emisinya.
 
 ## Build `.exe`
@@ -151,4 +151,4 @@ Departemen Teknik Elektro dan Teknologi Informasi, Fakultas Teknik, Universitas 
 
 ## Atribusi Data
 
-Data peta © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Routing oleh [OSRM](https://project-osrm.org/). Faktor emisi adalah estimasi rata-rata per kilometer (per penumpang untuk Bus dan Kereta).
+Data peta © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Routing oleh [OSRM](https://project-osrm.org/) melalui server komunitas [routing.openstreetmap.de](https://routing.openstreetmap.de/). Data lalu lintas oleh [TomTom](https://developer.tomtom.com/). Faktor emisi adalah estimasi rata-rata per kilometer (per penumpang untuk Bus).
