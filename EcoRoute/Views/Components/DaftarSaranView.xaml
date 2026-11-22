@@ -27,7 +27,7 @@
                     <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{StaticResource PrimaryBlueSoftBrush}"/>
+                    <Setter Property="Background" Value="{StaticResource PrimarySoftBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
