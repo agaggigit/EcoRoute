@@ -103,6 +103,20 @@ public class KondisiLaluLintas
         ? Segmen.Sum(s => s.PengaliWaktu * s.JarakKm) / JarakTotalKm
         : 1.0;
 
+    // Emisi bagian naik bus pada trayek Trans Jogja (jalan kaki ke / dari halte tidak beremisi).
+    // Urutan sumber kemacetan: data per segmen di jalur bus sendiri, lalu rata-rata emisi per km
+    // rute jalan raya (kalau jalur bus tidak punya data), lalu tanpa kemacetan.
+    public static double HitungEmisiBus(
+        ModaTransportasi moda, double jarakBusKm, KondisiLaluLintas? jalurBus, KondisiLaluLintas? jalanRaya)
+    {
+        if (jalurBus is not null)
+            return jalurBus.HitungEmisi(moda);
+
+        return jalanRaya is { JarakTotalKm: > 0 }
+            ? jalanRaya.HitungEmisi(moda) / jalanRaya.JarakTotalKm * jarakBusKm
+            : moda.HitungEmisi(jarakBusKm);
+    }
+
     // Cadangan kalau TomTom tidak bisa dipakai
     public static KondisiLaluLintas Tebakan(double jarakKm, int jumlahTitik, DateTime waktu)
     {
