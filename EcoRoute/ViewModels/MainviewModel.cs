@@ -1111,14 +1111,8 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
-    private static string BuatRingkasanLive(KondisiLaluLintas kondisi)
-    {
-        string ringkasan = $"{kondisi.TingkatRataRata}: kecepatan rata-rata {kondisi.RasioRataRata:P0} dari kondisi normal.";
-        double tersendat = kondisi.JarakTersendatKm;
-        if (tersendat >= 0.05)
-            ringkasan += $" Ruas padat/macet {tersendat:0.0} km dari {kondisi.JarakTotalKm:0.0} km.";
-        return ringkasan + " (live TomTom)";
-    }
+    private static string BuatRingkasanLive(KondisiLaluLintas kondisi) =>
+        kondisi.Ringkasan() + " (live TomTom)";
 
     // Notif singkat di bawah peta, hilang sendiri setelah beberapa detik
     private async Task TampilkanNotifikasiSementaraAsync(string pesan)
