@@ -1,4 +1,4 @@
-<!--
+﻿<!--
     State D - Hasil rute: waktu, jarak, emisi, perbandingan moda, dan saran. Pemilik: Akio (tampilan diperbarui bersama tema baru).
     Binding: WaktuTampil, KondisiWaktu, KeteranganKemacetan, JarakKm, EmisiKarbonKg,
              AdaKeteranganBus, KeteranganBusSingkat, KeteranganBus,
@@ -221,5 +221,41 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
         </Grid>
+
+        <!-- Catat perjalanan: hanya rute yang dipakai yang masuk Riwayat dan Eco Score -->
+        <Button FontSize="14"
+                Padding="14,12"
+                Margin="0,16,0,0"
+                AutomationProperties.Name="Pakai rute ini"
+                Command="{Binding CatatPerjalananCommand}">
+            <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsPerjalananTercatat}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Pakai rute ini" FontWeight="SemiBold"/>
+            </StackPanel>
+        </Button>
+
+        <Border Margin="0,16,0,0" Padding="14,12" CornerRadius="12" Background="{StaticResource PrimarySoftBrush}"
+                Visibility="{Binding IsPerjalananTercatat, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                           Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Tercatat di riwayat" FontSize="14" FontWeight="SemiBold"
+                           Foreground="{StaticResource PrimaryBrush}"/>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Text="Perjalanan yang dipakai masuk Riwayat dan menambah Eco Score."
+                   Style="{StaticResource CaptionText}" FontSize="11" HorizontalAlignment="Center"
+                   TextAlignment="Center" Margin="0,8,0,0"/>
     </StackPanel>
 </UserControl>

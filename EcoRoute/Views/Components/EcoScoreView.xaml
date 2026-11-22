@@ -1,6 +1,7 @@
-<!--
-    Panel Eco Score (tampil di posisi card kiri, menggantikan card Jelajah selama dibuka). Pemilik: Annora (ringkasan riwayat) + Eco Score.
-    Binding: EcoScore (EcoScoreRingkasan dari EcoScoreCalculator), StatusRiwayat
+﻿<!--
+    Panel Eco Score (tampil di posisi card kiri, menggantikan card Jelajah selama dibuka). Pemilik: Annora + Akio
+    (tampilan diperbarui bersama tema baru).
+    Binding: EcoScore (EcoScoreRingkasan dari EcoScoreCalculator), TahapanLevel (TahapLevel)
 -->
 <UserControl x:Class="EcoRoute.Views.Components.EcoScoreView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -8,162 +9,178 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="720"
+             d:DesignHeight="640"
              d:DesignWidth="400">
 
-    <!-- Kartu di posisi card kiri (lebar mengikuti wadah di MainWindow), gaya sama dengan card lain -->
-    <Border Style="{StaticResource FloatingCardStyle}"
-            Padding="20">
+    <UserControl.Resources>
+        <Style x:Key="TileStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource InputBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLightBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+    </UserControl.Resources>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <Border Style="{StaticResource FloatingCardStyle}" Padding="20">
+        <ScrollViewer Style="{StaticResource HiddenScrollViewer}">
             <StackPanel>
 
-                <TextBlock Text="Eco Score" Style="{StaticResource TitleText}"/>
-                <TextBlock Text="CO₂ yang kamu hemat dibanding naik mobil"
-                           Style="{StaticResource CaptionText}"
-                           TextWrapping="Wrap"
-                           Margin="0,8,0,20"/>
-
-                <!-- Level + poin + progres -->
-                <Border Background="{StaticResource EcoGreenSoftBrush}"
-                        CornerRadius="12"
-                        Padding="16"
-                        Margin="0,0,0,12">
+                <!-- Judul + cara hitung (tooltip, supaya panel tidak penuh teks) -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Left"
-                                       Text="{Binding EcoScore.IkonLevel}"
-                                       FontFamily="{StaticResource IconFont}"
-                                       FontSize="36"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,12,0"/>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Level" Style="{StaticResource CaptionText}"/>
-                                <TextBlock Text="{Binding EcoScore.NamaLevel}"
-                                           Foreground="{StaticResource EcoGreenBrush}"
-                                           FontSize="24"
-                                           FontWeight="Bold"/>
+                        <TextBlock Text="Eco Score" Style="{StaticResource TitleText}" FontSize="22"/>
+                        <TextBlock Text="CO₂ yang kamu hemat dibanding naik mobil"
+                                   Style="{StaticResource CaptionText}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Width="30" Height="30" CornerRadius="15" Cursor="Help"
+                            Background="{StaticResource InputBackgroundBrush}" VerticalAlignment="Top"
+                            ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="30000">
+                        <Border.ToolTip>
+                            <StackPanel MaxWidth="280">
+                                <TextBlock Text="Cara menghitung" FontWeight="Bold" Margin="0,0,0,4"/>
+                                <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Text="Perjalanan dihitung saat kamu menekan &quot;Pakai rute ini&quot; di hasil rute. Mencari atau membandingkan rute saja tidak dihitung."/>
+                                <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Text="CO₂ dihemat = emisi kalau naik mobil − emisi moda yang kamu pakai (dalam kondisi lalu lintas lancar). Setiap 1 kg CO₂ dihemat = 10 poin."/>
+                                <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Text="Level: Bibit (0) → Tunas (100) → Pohon (500) → Hutan (2.000 poin)."/>
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"
+                                           Text="Satu pohon menyerap ±21 kg CO₂ per tahun (European Environment Agency)."/>
                             </StackPanel>
-                            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <TextBlock Text="Poin"
-                                           Style="{StaticResource CaptionText}"
-                                           HorizontalAlignment="Right"/>
-                                <TextBlock Text="{Binding EcoScore.Poin}"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontSize="24"
-                                           FontWeight="SemiBold"
-                                           HorizontalAlignment="Right"/>
-                            </StackPanel>
-                        </DockPanel>
+                        </Border.ToolTip>
+                        <TextBlock Text="&#xE946;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
 
-                        <ProgressBar Minimum="0"
-                                     Maximum="1"
+                <!-- Level: tumbuh dari bibit sampai hutan -->
+                <Border CornerRadius="16" Padding="18" Margin="0,18,0,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0" Color="#F0FDF4"/>
+                            <GradientStop Offset="1" Color="#DCFCE7"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="60" Height="60" CornerRadius="30" Background="White" Margin="0,0,14,0">
+                                <TextBlock Text="{Binding EcoScore.IkonLevel}" FontFamily="Segoe UI Emoji" Foreground="{StaticResource PrimaryBrush}" FontSize="30"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Level kamu" Style="{StaticResource OverlineText}" Foreground="{StaticResource PrimaryBrush}"/>
+                                <TextBlock Text="{Binding EcoScore.NamaLevel}" FontFamily="{StaticResource HeadingFont}"
+                                           FontWeight="SemiBold" FontSize="26" Foreground="#14532D"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding EcoScore.Poin}" FontSize="26" FontWeight="Bold"
+                                           Foreground="#14532D" HorizontalAlignment="Right"/>
+                                <TextBlock Text="poin" Style="{StaticResource CaptionText}" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <ProgressBar Style="{StaticResource RoundedProgressStyle}" Background="White"
                                      Value="{Binding EcoScore.ProgresKeLevelBerikut, Mode=OneWay}"
-                                     Height="8"
-                                     Margin="0,14,0,6"
-                                     Foreground="{StaticResource EcoGreenBrush}"
-                                     Background="{StaticResource CardBackgroundBrush}"
-                                     BorderThickness="0"/>
-                        <TextBlock Text="{Binding EcoScore.KeteranganLevel}"
-                                   Style="{StaticResource CaptionText}"/>
+                                     Margin="0,16,0,6"/>
+                        <TextBlock Text="{Binding EcoScore.KeteranganLevel}" Style="{StaticResource CaptionText}"
+                                   Foreground="#166534"/>
+
+                        <!-- Tahapan level -->
+                        <ItemsControl ItemsSource="{Binding TahapanLevel}" Margin="0,14,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel x:Name="Tahap" HorizontalAlignment="Center" Opacity="0.4"
+                                                ToolTip="{Binding PoinMinimal, StringFormat={}Mulai {0} poin}">
+                                        <Border x:Name="Lingkar" Width="34" Height="34" CornerRadius="17" Background="White"
+                                                BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Ikon}" FontFamily="Segoe UI Emoji" Foreground="{StaticResource PrimaryBrush}" FontSize="16"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock x:Name="NamaTahap" Text="{Binding Nama}" FontSize="11" HorizontalAlignment="Center"
+                                                   Foreground="#166534" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Tercapai}" Value="True">
+                                            <Setter TargetName="Tahap" Property="Opacity" Value="1"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Aktif}" Value="True">
+                                            <Setter TargetName="Lingkar" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                            <Setter TargetName="NamaTahap" Property="FontWeight" Value="Bold"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
 
-                <!-- CO2 dihemat + setara pohon -->
-                <Border BorderBrush="{StaticResource BorderLightBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="16"
-                        Margin="0,0,0,12">
+                <!-- Angka utama: CO2 yang dihemat -->
+                <Border Style="{StaticResource TileStyle}" Padding="16,14" Margin="0,12,0,0">
                     <StackPanel>
-                        <TextBlock Text="CO₂ dihemat" Style="{StaticResource CaptionText}"/>
-                        <TextBlock Foreground="{StaticResource EcoGreenBrush}"
-                                   FontSize="28"
-                                   FontWeight="Bold"
-                                   Text="{Binding EcoScore.EmisiDihematKg, StringFormat={}{0:0.00} kg}"/>
-                        <TextBlock Style="{StaticResource CaptionText}"
-                                   TextWrapping="Wrap"
-                                   Margin="0,6,0,0">
-                            <Run Text="&#x1F333; Setara"/>
+                        <TextBlock Text="CO₂ dihemat" Style="{StaticResource OverlineText}"/>
+                        <TextBlock Foreground="{StaticResource PrimaryBrush}" Margin="0,2,0,0">
+                            <Run Text="{Binding EcoScore.EmisiDihematKg, StringFormat={}{0:0.00}, Mode=OneWay}" FontSize="30" FontWeight="Bold"/>
+                            <Run Text="kg" FontSize="15" FontWeight="SemiBold"/>
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="0,2,0,0">
+                            <Run Text="Setara"/>
                             <Run Text="{Binding EcoScore.SetaraPohon, StringFormat={}{0:0.0}, Mode=OneWay}"
-                                 FontWeight="SemiBold"
-                                 Foreground="{StaticResource TextPrimaryBrush}"/>
+                                 FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
                             <Run Text="pohon menyerap CO₂ selama setahun"/>
                         </TextBlock>
                     </StackPanel>
                 </Border>
 
-                <!-- Ringkasan riwayat (panel awal Annora) -->
-                <Border BorderBrush="{StaticResource BorderLightBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="16"
-                        Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Total emisi CO₂" Style="{StaticResource CaptionText}"/>
-                        <TextBlock FontSize="24"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   Text="{Binding EcoScore.TotalEmisiKg, StringFormat={}{0:0.00} kg CO₂}"/>
-                    </StackPanel>
-                </Border>
-
-                <UniformGrid Columns="2" Margin="0,0,0,12">
-                    <Border BorderBrush="{StaticResource BorderLightBrush}"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="16"
-                            Margin="0,0,6,0">
+                <!-- Ringkasan riwayat -->
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource TileStyle}">
                         <StackPanel>
-                            <TextBlock Text="Perjalanan" Style="{StaticResource CaptionText}"/>
-                            <TextBlock FontSize="22"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       Text="{Binding EcoScore.TotalPerjalanan}"/>
+                            <TextBlock Text="Perjalanan" Style="{StaticResource OverlineText}"/>
+                            <TextBlock Text="{Binding EcoScore.TotalPerjalanan}" FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0"/>
+                            <TextBlock Style="{StaticResource CaptionText}" FontSize="10.5"
+                                       Text="{Binding EcoScore.PerjalananTanpaEmisi, StringFormat={}{0} tanpa emisi}"/>
                         </StackPanel>
                     </Border>
-                    <Border BorderBrush="{StaticResource BorderLightBrush}"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="16"
-                            Margin="6,0,0,0">
+                    <Border Grid.Column="2" Style="{StaticResource TileStyle}">
                         <StackPanel>
-                            <TextBlock Text="Total jarak" Style="{StaticResource CaptionText}"/>
-                            <TextBlock FontSize="22"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       Text="{Binding EcoScore.TotalJarakKm, StringFormat={}{0:0.0} km}"/>
+                            <TextBlock Text="Jarak" Style="{StaticResource OverlineText}"/>
+                            <TextBlock Text="{Binding EcoScore.TotalJarakKm, StringFormat={}{0:0.0} km}" FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Border>
-                </UniformGrid>
-
-                <Border BorderBrush="{StaticResource BorderLightBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="16"
-                        Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Perjalanan tanpa emisi langsung" Style="{StaticResource CaptionText}"/>
-                        <TextBlock FontSize="22"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource EcoGreenBrush}"
-                                   Text="{Binding EcoScore.PerjalananTanpaEmisi}"/>
-                    </StackPanel>
-                </Border>
-
-                <TextBlock Text="CO₂ dihemat = emisi mobil − emisi moda yang dipilih, dihitung dalam kondisi lalu lintas lancar. 1 kg dihemat = 10 poin."
-                           Style="{StaticResource CaptionText}"
-                           TextWrapping="Wrap"
-                           Margin="0,8,0,0"/>
-                <TextBlock Text="Satu pohon menyerap ±21 kg CO₂ per tahun (European Environment Agency)."
-                           Style="{StaticResource CaptionText}"
-                           Foreground="{StaticResource TextMutedBrush}"
-                           TextWrapping="Wrap"
-                           Margin="0,6,0,0"/>
-                <TextBlock Text="{Binding StatusRiwayat}"
-                           Style="{StaticResource CaptionText}"
-                           TextWrapping="Wrap"
-                           Margin="0,12,0,0"/>
+                    <Border Grid.Column="4" Style="{StaticResource TileStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Emisi" Style="{StaticResource OverlineText}"/>
+                            <TextBlock Text="{Binding EcoScore.TotalEmisiKg, StringFormat={}{0:0.00} kg}" FontSize="18" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0"/>
+                            <TextBlock Text="CO₂ total" Style="{StaticResource CaptionText}" FontSize="10.5"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </StackPanel>
         </ScrollViewer>
     </Border>
