@@ -209,7 +209,11 @@ public partial class MainViewModel : BaseViewModel
     public IReadOnlyList<ModaTransportasi> DaftarModa
     {
         get => _daftarModa;
-        private set => SetProperty(ref _daftarModa, value);
+        private set
+        {
+            if (SetProperty(ref _daftarModa, value))
+                HitungUlangEcoScore();
+        }
     }
 
     public bool IsMencari
@@ -246,13 +250,8 @@ public partial class MainViewModel : BaseViewModel
         get => _riwayatPerjalanan;
         private set
         {
-            if (!SetProperty(ref _riwayatPerjalanan, value))
-                return;
-
-            OnPropertyChanged(nameof(TotalPerjalanan));
-            OnPropertyChanged(nameof(TotalJarakKm));
-            OnPropertyChanged(nameof(TotalEmisiRiwayatKg));
-            OnPropertyChanged(nameof(PerjalananTanpaEmisi));
+            if (SetProperty(ref _riwayatPerjalanan, value))
+                HitungUlangEcoScore();
         }
     }
 
@@ -287,19 +286,39 @@ public partial class MainViewModel : BaseViewModel
         set => SetProperty(ref _isEcoScoreOpen, value);
     }
 
-    // Eco Score dihitung dari riwayat pengguna yang login.
-    public int TotalPerjalanan =>
-        RiwayatPerjalanan.Count;
+    // ==========================================
+    // ECO SCORE (dihitung dari riwayat pengguna yang login, lihat Models/EcoScoreCalculator.cs)
+    // ==========================================
+    private EcoScoreRingkasan _ecoScore = EcoScoreRingkasan.Kosong;
 
-    public double TotalJarakKm =>
-        RiwayatPerjalanan.Sum(r => r.JarakKm);
+    public EcoScoreRingkasan EcoScore
+    {
+        get => _ecoScore;
+        private set
+        {
+            if (!SetProperty(ref _ecoScore, value))
+                return;
 
-    public double TotalEmisiRiwayatKg =>
-        RiwayatPerjalanan.Sum(r => r.TotalEmisiKg);
+            OnPropertyChanged(nameof(TotalPerjalanan));
+            OnPropertyChanged(nameof(TotalJarakKm));
+            OnPropertyChanged(nameof(TotalEmisiRiwayatKg));
+            OnPropertyChanged(nameof(PerjalananTanpaEmisi));
+        }
+    }
 
-    public int PerjalananTanpaEmisi =>
-        RiwayatPerjalanan.Count(
-            r => r.TotalEmisiKg <= 0);
+    public int TotalPerjalanan => EcoScore.TotalPerjalanan;
+
+    public double TotalJarakKm => EcoScore.TotalJarakKm;
+
+    public double TotalEmisiRiwayatKg => EcoScore.TotalEmisiKg;
+
+    public int PerjalananTanpaEmisi => EcoScore.PerjalananTanpaEmisi;
+
+    // Dipanggil saat riwayat atau daftar moda (faktor emisi) berubah
+    private void HitungUlangEcoScore()
+    {
+        EcoScore = new EcoScoreCalculator(DaftarModa).Hitung(RiwayatPerjalanan);
+    }
 
     public string SearchQuery
     {
