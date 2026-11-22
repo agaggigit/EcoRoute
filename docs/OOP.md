@@ -110,7 +110,7 @@ Saat *Hitung Emisi* ditekan, `RoutingService.HitungSemuaRuteAsync` mengambil tig
 |---|---|---|
 | Mobil | Jalan raya | Durasi rute × pengali kemacetan |
 | Motor | Jalan raya | Durasi rute × (1 + separuh tambahan akibat macet) |
-| Bus | Jalan raya | Durasi rute × 1.3 × pengali kemacetan + 10 menit |
+| Bus | Trayek Trans Jogja (kalau ada yang langsung), selain itu jalan raya | Durasi bagian bus × 1.3 × pengali kemacetan + 10 menit (+ jalan kaki ke dan dari halte) |
 | Sepeda | Jalur sepeda | Durasi rute sepeda, tidak terpengaruh macet |
 | Jalan Kaki | Jalur pejalan kaki | Durasi rute jalan kaki, tidak terpengaruh macet |
 
@@ -121,7 +121,7 @@ Alasan tiap rumus:
 - **Bus dikali sekaligus ditambah**, karena ada dua jenis waktu tambahan:
   - *Dikali 1.3*: waktu berhenti di halte sepanjang jalan. Makin jauh perjalanan, makin banyak halte yang dilewati, sehingga waktunya sebanding dengan jarak.
   - *Ditambah 10 menit*: waktu menunggu bus datang. Waktu ini tetap per perjalanan, tidak tergantung jarak. Nilai 10 menit diambil dari kira-kira setengah jarak kedatangan bus Trans Jogja (15–20 menit).
-  - Kedua angka adalah asumsi, karena data trayek dan jadwal Trans Jogja tidak tersedia gratis dalam bentuk yang bisa dipakai aplikasi.
+  - Kedua angka adalah asumsi. Jadwal jam keberangkatan tidak dibutuhkan, karena Trans Jogja berangkat dengan interval tetap, bukan jadwal jam seperti kereta.
 - **Sepeda dan jalan kaki** memakai durasi dari profil rutenya sendiri. Kalau rute sepeda atau jalan kaki gagal diambil, aplikasi memakai rute jalan raya dengan kecepatan rata-rata 15 km/jam (sepeda) atau 5 km/jam (jalan kaki).
 
 Contoh UGM → Malioboro saat lancar (data asli):
@@ -130,9 +130,33 @@ Contoh UGM → Malioboro saat lancar (data asli):
 |---|---|---|---|
 | Mobil | 3.62 km | 6 menit | 0.695 kg |
 | Motor | 3.62 km | 6 menit | 0.373 kg |
-| Bus | 3.62 km | 18 menit | 0.322 kg |
+| Bus (Trans Jogja 3A) | 4.2 km (3.6 km naik bus + 0.6 km jalan kaki) | ±26 menit | ±0.32 kg |
 | Sepeda | 3.25 km | 15 menit | 0 kg |
 | Jalan Kaki | 3.43 km | 46 menit | 0 kg |
+
+### Trayek Trans Jogja
+
+Jalur Bus mengikuti trayek Trans Jogja asli kalau ada **satu trayek yang langsung** menghubungkan titik awal dan tujuan (tanpa pindah bus).
+
+**Sumber data.** Trayek dan halte diambil dari OpenStreetMap lewat Overpass API, yang gratis dan tanpa API key. Ada 20 trayek dengan 30–75 halte per trayek. Data diunduh sekali oleh developer dengan `tools/ambil_trayek_transjogja.py`, lalu disimpan di `EcoRoute/Data/trayek-transjogja.json` (±360 KB) yang ikut terpasang bersama aplikasi. Data tidak diambil saat aplikasi berjalan, karena server Overpass sering penuh dan aplikasi jadi bergantung pada server itu. Tanggal pengambilan tercatat di file data.
+
+**Cara mencari rute** (`Services/TransJogjaService.cs`):
+
+1. Cari halte dalam jarak 1 km (garis lurus) dari titik awal dan dari tujuan. Untuk tiap trayek dicoba maksimal 5 halte terdekat di tiap ujung.
+2. Tiap trayek disimpan sebagai jaringan ruas jalan yang dilaluinya. Jalur bus dari halte naik ke halte turun adalah jalur terpendek di dalam jaringan itu (algoritma Dijkstra), jadi garisnya pasti lewat jalan yang memang dilalui trayek tersebut.
+3. Dari semua kombinasi trayek, halte naik, dan halte turun, dipilih yang paling cepat (jalan kaki 5 km/jam, bus ±20 km/jam). Kombinasi yang total jalan kakinya lebih jauh daripada langsung berjalan ke tujuan dilewati.
+4. Jarak jalan kaki = jarak garis lurus × 1.3, untuk belokan dan menyeberang jalan.
+
+**Emisi dan waktu.** Hanya bagian naik bus yang beremisi. Durasi bagian bus dihitung dari kecepatan rata-rata rute mobil untuk perjalanan yang sama, lalu dipakai rumus bus di atas (× 1.3 untuk halte, × kemacetan, + 10 menit menunggu), ditambah waktu jalan kaki. Kemacetan per segmen dari TomTom diukur di rute jalan raya, jadi untuk bagian bus dipakai rata-rata emisi per km-nya.
+
+**Kalau tidak ada trayek langsung**, misalnya halte terlalu jauh atau harus pindah bus, Bus kembali memakai perkiraan jalan raya seperti sebelumnya. Card hasil menuliskan keterangan itu dengan jelas.
+
+**Batasan yang diketahui:**
+
+- Belum mendukung pindah bus (transit). Perjalanan yang butuh dua trayek memakai perkiraan jalan raya.
+- Arah jalan satu arah belum diperhitungkan. Jalur bus pergi dan pulang bisa saja berbeda di jalan satu arah seperti Malioboro, tetapi aplikasi memakai jalur terpendek di jaringan trayek ke dua arah.
+- Urutan halte di OpenStreetMap sering tidak berurutan, jadi aplikasi tidak memakai urutan itu. Akibatnya jumlah halte yang dilewati tidak ditampilkan.
+- Data OpenStreetMap dibuat komunitas dan bisa tertinggal dari perubahan trayek terbaru. Untuk memperbarui, jalankan ulang skrip di atas.
 
 ## Hubungan dengan database
 
@@ -158,7 +182,8 @@ Unit test (xUnit) ada di `EcoRoute.Tests/`:
 |---|---|
 | `ModaTransportasiTests.cs` | Rumus emisi, penalti kemacetan bertahap, emisi nol untuk transportasi aktif, penolakan nilai negatif, pemanggilan polimorfik pada daftar moda campuran |
 | `TingkatKemacetanTests.cs` | Tebakan kondisi lalu lintas dari jam, waktu tempuh saat macet |
-| `RoutingServiceTests.cs` | Jalur tiap moda, estimasi waktu tempuh per moda (separuh efek macet untuk motor, rumus bus, durasi profil sepeda dan jalan kaki) |
+| `RoutingServiceTests.cs` | Jalur tiap moda, estimasi waktu tempuh per moda (separuh efek macet untuk motor, rumus bus, bus lewat trayek plus jalan kaki, durasi profil sepeda dan jalan kaki) |
+| `TransJogjaServiceTests.cs` | Pencarian trayek langsung, jalur bus mengikuti ruas trayek, jarak jalan kaki, halte di luar jangkauan, ruas yang terputus, data asli UGM → Malioboro |
 | `EcoScoreCalculatorTests.cs` | CO₂ dihemat per moda, tidak negatif saat macet, moda tidak dikenal, ambang level, progres, setara pohon |
 
 ```bash

@@ -14,6 +14,7 @@ public partial class MainViewModel : BaseViewModel
 
     private readonly RoutingService _routingService = new();
     private readonly TrafficService _trafficService = new();
+    private readonly TransJogjaService _transJogja;
     private SqliteDatabaseService? _databaseService;
 
     private AppState _currentState = AppState.StateA_Idle;
@@ -45,6 +46,9 @@ public partial class MainViewModel : BaseViewModel
 
     // Rute jalan raya, sepeda, dan jalan kaki dari Hitung Emisi terakhir. null = belum ada rute.
     private RuteSemuaModa? _ruteSemuaModa;
+
+    // Rute Bus lewat trayek Trans Jogja langsung. null = tidak ada trayek langsung (Bus ikut jalan raya).
+    private RouteResult? _ruteBus;
 
     // Nilai cadangan sebelum data moda berhasil dimuat dari SQLite.
     private IReadOnlyList<ModaTransportasi> _daftarModa =
@@ -471,6 +475,20 @@ public partial class MainViewModel : BaseViewModel
         private set => SetProperty(ref _ringkasanLaluLintas, value);
     }
 
+    // Keterangan trayek di card hasil saat moda Bus dipilih (kosong untuk moda lain)
+    private string _keteranganBus = string.Empty;
+    public string KeteranganBus
+    {
+        get => _keteranganBus;
+        private set
+        {
+            if (SetProperty(ref _keteranganBus, value))
+                OnPropertyChanged(nameof(AdaKeteranganBus));
+        }
+    }
+
+    public bool AdaKeteranganBus => !string.IsNullOrEmpty(KeteranganBus);
+
     public double JarakKm
     {
         get => _jarakKm;
@@ -519,7 +537,7 @@ public partial class MainViewModel : BaseViewModel
     public ICommand PilihTempatCommand { get; }
     public ICommand PilihKategoriCommand { get; }
 
-    public MainViewModel(int userId)
+    public MainViewModel(int userId, TransJogjaService? transJogja = null)
     {
         if (userId <= 0)
         {
@@ -529,6 +547,7 @@ public partial class MainViewModel : BaseViewModel
         }
 
         _penggunaAktifId = userId;
+        _transJogja = transJogja ?? TransJogjaService.Default;
 
         PilihTempatCommand = new RelayCommand(
             ExecutePilihTempat,
@@ -874,6 +893,12 @@ public partial class MainViewModel : BaseViewModel
             // Kemacetan hanya relevan untuk jalan raya (Mobil, Motor, Bus)
             await AmbilLaluLintasAsync(semuaRute.JalanRaya);
 
+            // Bus: cari trayek Trans Jogja yang langsung menghubungkan asal & tujuan (data lokal, instan)
+            RuteBus? trayek = _transJogja.CariRuteLangsung(asal, tujuan);
+            _ruteBus = trayek is null
+                ? null
+                : RoutingService.BuatRuteBus(trayek, semuaRute.JalanRaya);
+
             _ruteSemuaModa = semuaRute;
             TampilkanRuteModaTerpilih();
 
@@ -899,9 +924,18 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
-    // Rute milik suatu moda (Sepeda & Jalan Kaki punya jalur sendiri, sisanya jalan raya)
-    private RouteResult? RuteUntuk(string moda) =>
-        _ruteSemuaModa?.Untuk(RoutingService.ProfilUntuk(moda) ?? ProfilRute.JalanRaya);
+    // Rute milik suatu moda (Sepeda & Jalan Kaki punya jalur sendiri, Bus ikut trayek Trans Jogja
+    // kalau ada yang langsung, sisanya jalan raya)
+    private RouteResult? RuteUntuk(string moda)
+    {
+        if (_ruteSemuaModa is null)
+            return null;
+
+        if (moda == "Bus" && _ruteBus is not null)
+            return _ruteBus;
+
+        return _ruteSemuaModa.Untuk(RoutingService.ProfilUntuk(moda) ?? ProfilRute.JalanRaya);
+    }
 
     // Peta (lewat HasilRute) dan jarak mengikuti moda yang sedang dipilih
     private void TampilkanRuteModaTerpilih()
@@ -912,7 +946,36 @@ public partial class MainViewModel : BaseViewModel
 
         HasilRute = rute;
         JarakKm = rute.JarakKm;
+        KeteranganBus = SelectedModa == "Bus" ? BuatKeteranganBus(rute.Bus) : string.Empty;
     }
+
+    private static string BuatKeteranganBus(RuteBus? bus)
+    {
+        if (bus is null)
+        {
+            return "Belum ada trayek Trans Jogja langsung dengan halte dalam " +
+                   $"{TransJogjaService.MaksJalanKakiKm:0} km dari titik awal dan tujuan, " +
+                   "jadi jalur dan waktu bus diperkirakan dari jalan raya.";
+        }
+
+        // Nama OSM: "Transjogja 4A: Terminal Giwangan → Terminal Condongcatur"
+        int titikDua = bus.NamaTrayek.IndexOf(':');
+        string arah = titikDua >= 0 ? $" ({bus.NamaTrayek[(titikDua + 1)..].Trim()})" : string.Empty;
+
+        return $"Trans Jogja {bus.KodeTrayek}{arah}: naik di {bus.HalteNaik.Nama}, " +
+               $"turun di {bus.HalteTurun.Nama} ({bus.JarakBusKm:0.0} km naik bus). " +
+               $"Jalan kaki {FormatJarak(bus.JalanKakiAwalKm)} ke halte dan " +
+               $"{FormatJarak(bus.JalanKakiAkhirKm)} dari halte.";
+    }
+
+    private static string FormatJarak(double km) =>
+        km < 1
+            ? $"±{Math.Max(10, Math.Round(km * 100) * 10):0} m"
+            : $"±{km:0.0} km";
+
+    // Jarak yang ditempuh kendaraan (tanpa jalan kaki ke / dari halte)
+    private static double JarakKendaraanKm(RouteResult rute) =>
+        rute.Bus?.JarakBusKm ?? rute.JarakKm;
 
     // Emisi satu moda dengan jarak rutenya sendiri. Jalan raya memakai kemacetan per segmen.
     private double HitungEmisiModa(ModaTransportasi moda)
@@ -923,6 +986,15 @@ public partial class MainViewModel : BaseViewModel
 
         if (rute.Profil == ProfilRute.JalanRaya && LaluLintas is not null)
             return LaluLintas.HitungEmisi(moda);
+
+        // Trayek Trans Jogja: hanya bagian naik bus yang beremisi. Kemacetan per segmen hanya ada
+        // untuk rute jalan raya, jadi dipakai rata-rata emisi per km-nya pada jarak bus.
+        if (rute.Bus is not null)
+        {
+            return LaluLintas is { JarakTotalKm: > 0 }
+                ? LaluLintas.HitungEmisi(moda) / LaluLintas.JarakTotalKm * rute.Bus.JarakBusKm
+                : moda.HitungEmisi(rute.Bus.JarakBusKm);
+        }
 
         return moda.HitungEmisi(rute.JarakKm);
     }
@@ -1048,7 +1120,7 @@ public partial class MainViewModel : BaseViewModel
 
         double tambahan =
             EmisiKarbonKg -
-            moda.HitungEmisi(JarakKm);
+            moda.HitungEmisi(HasilRute is null ? JarakKm : JarakKendaraanKm(HasilRute));
 
         if (tambahan < 0.005)
             return insightModa;
@@ -1123,6 +1195,8 @@ public partial class MainViewModel : BaseViewModel
     private void ResetLaluLintas()
     {
         _ruteSemuaModa = null;
+        _ruteBus = null;
+        KeteranganBus = string.Empty;
         LaluLintas = null;
         RingkasanLaluLintas = string.Empty;
     }

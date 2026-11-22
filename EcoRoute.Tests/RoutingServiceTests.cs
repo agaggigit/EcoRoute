@@ -39,6 +39,34 @@ public class RoutingServiceTests
         Assert.Equal(49, RoutingService.EstimasiWaktuMenit("Bus", Rute(10, 20), pengaliKemacetan: 1.5));
     }
 
+    private static RuteBus Trayek(double jalanKakiAwal, double jarakBus, double jalanKakiAkhir) => new(
+        "4A", "Transjogja 4A: Giwangan → Condongcatur",
+        new HalteBus("Halte Naik", -7.77, 110.37),
+        new HalteBus("Halte Turun", -7.79, 110.36),
+        jalanKakiAwal, jarakBus, jalanKakiAkhir, []);
+
+    [Fact]
+    public void BuatRuteBus_DurasiBusMengikutiKecepatanJalanRaya()
+    {
+        // Jalan raya 10 km dalam 20 menit = 0,5 km/menit -> bus 6 km = 12 menit kalau lancar
+        RouteResult rute = RoutingService.BuatRuteBus(Trayek(0.5, 6, 0.3), Rute(10, 20));
+
+        Assert.Equal(ProfilRute.TrayekBus, rute.Profil);
+        Assert.Equal(12, rute.DurasiMenit, 6);
+        Assert.Equal(6.8, rute.JarakKm, 6); // jalan kaki + bus
+    }
+
+    [Fact]
+    public void EstimasiWaktu_BusLewatTrayek_DitambahJalanKakiKeDanDariHalte()
+    {
+        RouteResult rute = RoutingService.BuatRuteBus(Trayek(0.5, 6, 0.5), Rute(10, 20));
+
+        // 12 x 1.3 + 10 menunggu + 1 km jalan kaki (12 menit) = 37,6
+        Assert.Equal(38, RoutingService.EstimasiWaktuMenit("Bus", rute));
+        // Macet x1.5 hanya memperlambat bagian bus: 12 x 1.3 x 1.5 + 10 + 12 = 45,4
+        Assert.Equal(45, RoutingService.EstimasiWaktuMenit("Bus", rute, pengaliKemacetan: 1.5));
+    }
+
     [Theory]
     [InlineData("Sepeda", ProfilRute.Sepeda)]
     [InlineData("Jalan Kaki", ProfilRute.JalanKaki)]
