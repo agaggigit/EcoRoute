@@ -2,157 +2,108 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using Npgsql;
+using System.Windows.Media;
 using EcoRoute.ViewModels;
 
 namespace EcoRoute;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
+    private readonly int _userId;
     private bool _databaseLoaded;
 
-    public MainWindow()
+    public bool LogoutRequested { get; private set; }
+
+    public MainWindow(int userId)
     {
+        _userId = userId;
+
         InitializeComponent();
 
+        DataContext = new MainViewModel(_userId);
+
         Loaded += MainWindow_Loaded;
+        TambahkanTombolLogout();
     }
 
     private async void MainWindow_Loaded(
         object sender,
         RoutedEventArgs e)
     {
-        // Jangan memuat database dua kali.
         if (_databaseLoaded)
             return;
 
-        // MainViewModel harus sudah menjadi DataContext.
+        _databaseLoaded = true;
+
         if (DataContext is not MainViewModel viewModel)
-        {
-            MessageBox.Show(
-                "MainViewModel belum terhubung ke MainWindow.",
-                "Kesalahan Konfigurasi",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error
-            );
-
             return;
-        }
-
-        // Minta password melalui dialog sederhana.
-        string? password = ShowPasswordDialog();
-
-        if (password is null)
-        {
-            MessageBox.Show(
-                "Database tidak dihubungkan. Emisi tetap bisa dihitung, tetapi riwayat perjalanan tidak disimpan.",
-                "EcoRoute",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information
-            );
-
-            return;
-        }
-
-        var builder = new NpgsqlConnectionStringBuilder
-        {
-            Host = "localhost",
-            Port = 5432,
-            Database = "ecoroute",
-            Username = "postgres",
-            Password = password
-        };
 
         try
         {
-            await viewModel.LoadModaFromDatabaseAsync(
-                builder.ConnectionString
-            );
-
-            _databaseLoaded = true;
-
-            MessageBox.Show(
-                $"Berhasil mengambil {viewModel.DaftarModa.Count} moda transportasi dari PostgreSQL!",
-                "Koneksi Database Berhasil",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information
-            );
+            await viewModel.LoadModaFromDatabaseAsync();
         }
         catch (Exception ex)
         {
+            _databaseLoaded = false;
+
             MessageBox.Show(
-                "Gagal memuat data PostgreSQL:\n\n" +
-                ex.Message +
-                "\n\nPastikan PostgreSQL aktif, database ecoroute tersedia, dan password benar.",
-                "Koneksi Database Gagal",
+                "Gagal memuat database SQLite:\n\n" +
+                ex.Message,
+                "EcoRoute",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error
             );
         }
     }
 
-    private string? ShowPasswordDialog()
+    private void TambahkanTombolLogout()
     {
-        var dialog = new Window
+        if (Content is not Grid rootGrid)
+            throw new InvalidOperationException(
+                "Root MainWindow harus berupa Grid.");
+
+        var tombolLogout = new Button
         {
-            Title = "Koneksi PostgreSQL - EcoRoute",
-            Width = 390,
-            Height = 210,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Owner = this,
-            ResizeMode = ResizeMode.NoResize,
-            ShowInTaskbar = false
+            Content = "Logout",
+            Width = 90,
+            Height = 36,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 24, 24),
+            Background = new SolidColorBrush(
+                Color.FromRgb(33, 122, 83)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = "Keluar dari akun"
         };
 
-        var panel = new StackPanel
+        tombolLogout.Click += (_, _) =>
         {
-            Margin = new Thickness(20)
+            var hasil = MessageBox.Show(
+                "Yakin ingin logout dari EcoRoute?",
+                "Konfirmasi Logout",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question
+            );
+
+            if (hasil != MessageBoxResult.Yes)
+                return;
+
+            LogoutRequested = true;
+            Close();
         };
 
-        var label = new TextBlock
-        {
-            Text = "Masukkan password PostgreSQL:",
-            Margin = new Thickness(0, 0, 0, 10)
-        };
+        Grid.SetRowSpan(
+            tombolLogout,
+            Math.Max(1, rootGrid.RowDefinitions.Count));
 
-        var passwordBox = new PasswordBox
-        {
-            Height = 32
-        };
+        Grid.SetColumnSpan(
+            tombolLogout,
+            Math.Max(1, rootGrid.ColumnDefinitions.Count));
 
-        var button = new Button
-        {
-            Content = "Hubungkan Database",
-            Height = 34,
-            Margin = new Thickness(0, 15, 0, 0),
-            IsDefault = true
-        };
+        Panel.SetZIndex(tombolLogout, 1000);
 
-        button.Click += (_, _) =>
-        {
-            dialog.DialogResult = true;
-            dialog.Close();
-        };
-
-        panel.Children.Add(label);
-        panel.Children.Add(passwordBox);
-        panel.Children.Add(button);
-
-        dialog.Content = panel;
-
-        dialog.Loaded += (_, _) =>
-        {
-            passwordBox.Focus();
-        };
-
-        bool? result = dialog.ShowDialog();
-
-        return result == true
-            ? passwordBox.Password
-            : null;
+        rootGrid.Children.Add(tombolLogout);
     }
 }
