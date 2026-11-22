@@ -291,7 +291,14 @@ public partial class MainViewModel : BaseViewModel
         if (modaDariDb.Count == 0)
             throw new InvalidOperationException("Tabel emission_factor kosong. Jalankan Database/seed.sql dulu.");
 
+        // Mengganti ItemsSource membuat ListBox moda mengosongkan pilihannya dan
+        // menulis null balik ke SelectedModa lewat binding, jadi pulihkan pilihannya
+        string modaSebelumnya = SelectedModa;
         DaftarModa = modaDariDb;
+        SelectedModa = modaDariDb.Any(m => m.Nama == modaSebelumnya)
+            ? modaSebelumnya
+            : modaDariDb[0].Nama;
+
         _databaseService = database;
         OnPropertyChanged(nameof(IsDatabaseTerhubung));
 
