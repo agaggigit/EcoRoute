@@ -8,14 +8,27 @@
         xmlns:vm="clr-namespace:EcoRoute.ViewModels"
         xmlns:components="clr-namespace:EcoRoute.Views.Components"
         mc:Ignorable="d"
-        Title="EcoRoute - Route and Carbon Emission Tracker"
+        Title="EcoRoute"
+        Icon="pack://application:,,,/Assets/ecoroute.ico"
         Height="800"
         Width="1280"
         MinHeight="600"
         MinWidth="960"
-        FontFamily="Segoe UI"
+        FontFamily="{StaticResource BodyFont}"
         Language="id-ID"
-        WindowStartupLocation="CenterScreen">
+        Background="{StaticResource CardBackgroundBrush}"
+        WindowStartupLocation="CenterScreen"
+        StateChanged="Window_StateChanged">
+
+    <!-- Title bar custom: area 40 px teratas tetap bisa diseret, klik dua kali untuk maximize,
+         dan snap Windows tetap jalan. Tombol di title bar perlu IsHitTestVisibleInChrome. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
 
@@ -167,8 +180,62 @@
 
     </Window.Resources>
 
+    <!-- Saat maximize, Windows menaruh jendela sedikit keluar layar; RootGrid diberi margin di code-behind -->
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- TITLE BAR -->
+        <Border Grid.Row="0"
+                Background="{StaticResource CardBackgroundBrush}"
+                BorderBrush="{StaticResource BorderLightBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid>
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="22,0,0,0">
+                    <Image Source="{StaticResource LogoTile}"
+                           Width="22"
+                           Height="22"/>
+                    <TextBlock Text="EcoRoute"
+                               FontFamily="{StaticResource HeadingFont}"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,1"/>
+                    <TextBlock Text="Jalan hemat, bumi sehat."
+                               Style="{StaticResource CaptionText}"
+                               VerticalAlignment="Center"
+                               Margin="12,1,0,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource CaptionButtonStyle}"
+                            Content="&#xE921;"
+                            ToolTip="Minimize"
+                            AutomationProperties.Name="Minimize"
+                            Click="Minimize_Click"/>
+                    <Button x:Name="MaximizeButton"
+                            Style="{StaticResource CaptionButtonStyle}"
+                            Content="&#xE922;"
+                            ToolTip="Maximize"
+                            AutomationProperties.Name="Maximize"
+                            Click="Maximize_Click"/>
+                    <Button Style="{StaticResource CaptionCloseButtonStyle}"
+                            Content="&#xE8BB;"
+                            ToolTip="Tutup"
+                            Click="Close_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
     <!-- LAYOUT UTAMA -->
-    <Grid>
+    <Grid Grid.Row="1">
 
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="72"/>
@@ -473,6 +540,8 @@
             </Border>
 
         </Grid>
+
+    </Grid>
 
     </Grid>
 

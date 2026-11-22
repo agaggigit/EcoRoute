@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -8,11 +8,15 @@ namespace EcoRoute.Services;
 
 public static class SqliteDatabaseInitializer
 {
-    public static string DatabasePath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "EcoRoute",
-        "ecoroute.db"
-    );
+    // ECOROUTE_DB_PATH (opsional) memakai file database lain, misalnya untuk uji coba / demo
+    // tanpa menyentuh riwayat asli di LocalAppData.
+    public static string DatabasePath { get; } =
+        Environment.GetEnvironmentVariable("ECOROUTE_DB_PATH") is { Length: > 0 } jalurKhusus
+            ? jalurKhusus
+            : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "EcoRoute",
+                "ecoroute.db");
 
     public static string ConnectionString =>
         new SqliteConnectionStringBuilder

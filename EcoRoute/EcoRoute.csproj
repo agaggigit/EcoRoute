@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\ecoroute.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +28,13 @@
     <Content Include="Maps\map.html" CopyToOutputDirectory="PreserveNewest" />
     <!-- Trayek & halte Trans Jogja dari OpenStreetMap (dibuat tools/ambil_trayek_transjogja.py) -->
     <Content Include="Data\trayek-transjogja.json" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+
+<!-- Logo dan font (Plus Jakarta Sans untuk teks, Fraunces untuk judul; keduanya lisensi OFL) -->
+<ItemGroup>
+    <Resource Include="Assets\ecoroute.ico" />
+    <Resource Include="Assets\logo-256.png" />
+    <Resource Include="Fonts\*.ttf" />
 </ItemGroup>
 
 <ItemGroup>

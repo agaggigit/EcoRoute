@@ -104,7 +104,7 @@
                     <!-- TOMBOL RUTE -->
                     <Button Style="{StaticResource IconButtonStyle}"
                             Content="&#xE8CB;"
-                            Foreground="{StaticResource PrimaryBlueBrush}"
+                            Foreground="{StaticResource PrimaryBrush}"
                             ToolTip="Mulai rute perjalanan"
                             Command="{Binding MulaiRuteCommand}"
                             Width="38"
@@ -199,11 +199,11 @@
                             <StackPanel HorizontalAlignment="Center">
                                 <Border Width="38" Height="38"
                                         CornerRadius="19"
-                                        Background="{StaticResource PrimaryBlueSoftBrush}">
+                                        Background="{StaticResource PrimarySoftBrush}">
                                     <TextBlock Text="{Binding Ikon}"
                                                FontFamily="{StaticResource IconFont}"
                                                FontSize="16"
-                                               Foreground="{StaticResource PrimaryBlueBrush}"
+                                               Foreground="{StaticResource PrimaryBrush}"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center"/>
                                 </Border>
