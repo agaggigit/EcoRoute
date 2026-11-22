@@ -14,12 +14,16 @@ namespace EcoRoute.Services;
 // Potongan rute: indeks awal/akhir/tengah di RouteResult.Titik dan panjangnya.
 public record PotonganRute(int IndeksAwal, int IndeksAkhir, int IndeksTengah, double JarakKm);
 
+// Hasil TomTom di satu titik: rasio kecepatan (0..1) dan apakah nilainya benar-benar data live
+public record DataFlow(double Rasio, bool AdaDataLive);
+
 public class TrafficService
 {
     private const string FlowUrl = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json";
 
     // Kira-kira 1 segmen per km, minimal 3 dan maksimal 10.
-    // 10 request per hitung rute -> kuota free tier (2.500 request/hari) cukup untuk ±250 kali hitung.
+    // Maksimal 10 request per hitung rute -> kuota free tier Flow Segment Data (20.000 request/bulan,
+    // lihat docs.tomtom.com/pricing) cukup untuk ±2.000 kali hitung rute per bulan.
     private const int MinSegmen = 3;
     private const int MaxSegmen = 10;
 
@@ -59,19 +63,23 @@ public class TrafficService
         if (potongan.Count == 0)
             return null;
 
-        double?[] rasio = await Task.WhenAll(potongan.Select(p =>
-            AmbilRasioAsync(rute.Titik[p.IndeksTengah][0], rute.Titik[p.IndeksTengah][1])));
+        DataFlow?[] data = await Task.WhenAll(potongan.Select(p =>
+            AmbilDataFlowAsync(rute.Titik[p.IndeksTengah][0], rute.Titik[p.IndeksTengah][1])));
 
-        List<double> berhasil = rasio.OfType<double>().ToList();
+        List<DataFlow> berhasil = data.OfType<DataFlow>().ToList();
         if (berhasil.Count == 0)
             return null;
 
-        // Segmen yang gagal (misal jalan kecil tanpa data) diisi rata-rata segmen lain
-        double rataRata = berhasil.Average();
+        // Segmen yang gagal diisi rata-rata segmen lain yang punya data live (kalau ada),
+        // dan ditandai tanpa data live supaya di peta tidak tampak seperti hasil pengukuran
+        List<DataFlow> live = berhasil.Where(d => d.AdaDataLive).ToList();
+        double rataRata = (live.Count > 0 ? live : berhasil).Average(d => d.Rasio);
         var segmen = potongan.Select((p, i) =>
         {
-            double r = rasio[i] ?? rataRata;
-            return new SegmenLaluLintas(p.JarakKm, r, TingkatKemacetanInfo.DariRasioKecepatan(r), p.IndeksAwal, p.IndeksAkhir);
+            double r = data[i]?.Rasio ?? rataRata;
+            bool adaDataLive = data[i]?.AdaDataLive ?? false;
+            return new SegmenLaluLintas(p.JarakKm, r, TingkatKemacetanInfo.DariRasioKecepatan(r),
+                p.IndeksAwal, p.IndeksAkhir, adaDataLive);
         }).ToList();
 
         return new KondisiLaluLintas(segmen, live: true);
@@ -130,8 +138,8 @@ public class TrafficService
         return 2 * RadiusBumiKm * Math.Asin(Math.Sqrt(h));
     }
 
-    // Rasio kecepatan di satu titik, null kalau gagal (key salah, kuota habis, tidak ada data, dll.)
-    private async Task<double?> AmbilRasioAsync(double lat, double lng)
+    // Data flow di satu titik, null kalau gagal (key salah, kuota habis, tidak ada data, dll.)
+    private async Task<DataFlow?> AmbilDataFlowAsync(double lat, double lng)
     {
         string url = string.Create(CultureInfo.InvariantCulture,
             $"{FlowUrl}?point={lat},{lng}&unit=KMPH&key={Uri.EscapeDataString(_apiKey!)}");
@@ -144,7 +152,7 @@ public class TrafficService
 
             await using Stream stream = await response.Content.ReadAsStreamAsync();
             using JsonDocument json = await JsonDocument.ParseAsync(stream);
-            return HitungRasio(json.RootElement);
+            return BacaDataFlow(json.RootElement);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -152,14 +160,22 @@ public class TrafficService
         }
     }
 
+    // Rasio kecepatan saja (dipakai test dan pemanggil yang tidak butuh status data live)
+    public static double? HitungRasio(JsonElement root) => BacaDataFlow(root)?.Rasio;
+
     // Baca respons flowSegmentData. Jalan ditutup dihitung sebagai macet total.
-    public static double? HitungRasio(JsonElement root)
+    //
+    // Tanpa data live: di jalan kecil (FRC3 ke bawah) TomTom sering mengembalikan kecepatan saat ini
+    // persis sama dengan kecepatan normal dan confidence 1. Diagnosis di Yogyakarta (Malioboro, jalan
+    // dalam kota) selalu memberi hasil begitu, sedangkan jalan utama (FRC0-2) memberi nilai yang
+    // berubah-ubah. Ruas seperti itu tetap dihitung lancar, tapi ditandai tanpa data live.
+    public static DataFlow? BacaDataFlow(JsonElement root)
     {
         if (!root.TryGetProperty("flowSegmentData", out JsonElement data))
             return null;
 
         if (data.TryGetProperty("roadClosure", out JsonElement tutup) && tutup.ValueKind == JsonValueKind.True)
-            return 0;
+            return new DataFlow(0, AdaDataLive: true);
 
         if (!data.TryGetProperty("currentSpeed", out JsonElement saatIni) ||
             !data.TryGetProperty("freeFlowSpeed", out JsonElement normal))
@@ -169,6 +185,14 @@ public class TrafficService
         if (kecepatanNormal <= 0)
             return null;
 
-        return Math.Clamp(saatIni.GetDouble() / kecepatanNormal, 0, 1);
+        double kecepatanSaatIni = saatIni.GetDouble();
+        bool persisNormal = kecepatanSaatIni == kecepatanNormal;
+        bool yakinPenuh = !data.TryGetProperty("confidence", out JsonElement c) || c.GetDouble() >= 1.0;
+        bool jalanKecil = data.TryGetProperty("frc", out JsonElement frc) &&
+                          frc.GetString() is "FRC3" or "FRC4" or "FRC5" or "FRC6";
+
+        return new DataFlow(
+            Math.Clamp(kecepatanSaatIni / kecepatanNormal, 0, 1),
+            AdaDataLive: !(persisNormal && yakinPenuh && jalanKecil));
     }
 }

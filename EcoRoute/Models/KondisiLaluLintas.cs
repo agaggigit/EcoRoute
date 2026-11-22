@@ -5,12 +5,15 @@ namespace EcoRoute.Models;
 
 // RasioKecepatan = kecepatan saat ini / kecepatan normal (0..1).
 // IndeksAwal/IndeksAkhir = posisi segmen di RouteResult.Titik (untuk mewarnai rute di peta).
+// AdaDataLive = false: TomTom tidak punya data live untuk ruas ini (atau request-nya gagal), jadi
+// rasionya hanya anggapan. Emisi tetap dihitung dengan rasio itu, tapi di peta diberi warna abu-abu.
 public record SegmenLaluLintas(
     double JarakKm,
     double RasioKecepatan,
     TingkatKemacetan Tingkat,
     int IndeksAwal,
-    int IndeksAkhir)
+    int IndeksAkhir,
+    bool AdaDataLive = true)
 {
     // Kecepatan tinggal setengah -> waktu tempuh 2x.
     // Dibatasi x4 supaya satu titik yang macet total tidak membuat estimasi tidak masuk akal.
@@ -47,6 +50,49 @@ public class KondisiLaluLintas
     public double JarakTersendatKm => Segmen
         .Where(s => s.Tingkat is TingkatKemacetan.Padat or TingkatKemacetan.Macet)
         .Sum(s => s.JarakKm);
+
+    // Total panjang segmen tanpa data live TomTom
+    public double JarakTanpaDataLiveKm => Segmen.Where(s => !s.AdaDataLive).Sum(s => s.JarakKm);
+
+    // Total panjang segmen ber-data live dengan tingkat tertentu
+    public double JarakPerTingkat(TingkatKemacetan tingkat) => Segmen
+        .Where(s => s.AdaDataLive && s.Tingkat == tingkat)
+        .Sum(s => s.JarakKm);
+
+    // Ringkasan untuk card hasil. Menyebut ruas yang tersendat (Sedang ke atas) supaya sesuai dengan
+    // warna di peta; rata-rata seluruh rute bisa tetap "Lancar" walau sebagian ruas kuning/merah.
+    public string Ringkasan(IFormatProvider? format = null)
+    {
+        format ??= System.Globalization.CultureInfo.CurrentCulture;
+        string Km(double km) => km.ToString("0.0", format) + " km";
+
+        List<SegmenLaluLintas> terpantau = Segmen.Where(s => s.AdaDataLive).ToList();
+        if (terpantau.Count == 0)
+            return "Tidak ada data live untuk ruas ini, dianggap lancar.";
+
+        double tanpaData = JarakTanpaDataLiveKm;
+        string catatanTanpaData = tanpaData >= 0.05
+            ? $" {Km(tanpaData)} tanpa data live, dianggap lancar."
+            : string.Empty;
+
+        var tersendat = new[] { TingkatKemacetan.Macet, TingkatKemacetan.Padat, TingkatKemacetan.Sedang }
+            .Select(t => (Tingkat: t, Km: JarakPerTingkat(t)))
+            .Where(x => x.Km >= 0.05)
+            .ToList();
+
+        if (tersendat.Count == 0)
+        {
+            double jarak = terpantau.Sum(s => s.JarakKm);
+            double rasio = jarak > 0
+                ? terpantau.Sum(s => s.RasioKecepatan * s.JarakKm) / jarak
+                : terpantau.Average(s => s.RasioKecepatan);
+            return $"Lancar: kecepatan rata-rata {rasio.ToString("P0", format)} dari kondisi normal." + catatanTanpaData;
+        }
+
+        string rincian = string.Join(", ", tersendat.Select(x => $"{x.Tingkat} {Km(x.Km)}"));
+        return $"Tersendat {Km(tersendat.Sum(x => x.Km))} dari {Km(JarakTotalKm)} ({rincian}). Ruas lain lancar." +
+               catatanTanpaData;
+    }
 
     // Emisi dihitung per segmen sesuai kondisi masing-masing, lalu dijumlahkan
     public double HitungEmisi(ModaTransportasi moda) =>
