@@ -14,6 +14,15 @@
     <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 
+  <!-- API key TomTom ditanam ke exe saat build, tidak pernah ditulis di source code.
+       Sumber: -p:TomTomApiKey=... atau environment variable TOMTOM_API_KEY. -->
+  <PropertyGroup>
+    <TomTomApiKey Condition="'$(TomTomApiKey)' == ''">$(TOMTOM_API_KEY)</TomTomApiKey>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TomTomApiKey)' != ''">
+    <AssemblyMetadata Include="TomTomApiKey" Value="$(TomTomApiKey)" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="Maps\map.html" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
