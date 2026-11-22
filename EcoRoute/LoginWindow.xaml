@@ -1,92 +1,127 @@
-
+﻿
+<!-- Jendela login / register. Tanpa bingkai Windows: kartu membulat dengan bayangan, bisa digeser dari mana saja. -->
 <Window x:Class="EcoRoute.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="EcoRoute - Login"
-        Width="460"
-        Height="620"
-        MinWidth="420"
-        MinHeight="550"
+        Title="EcoRoute - Masuk"
+        Icon="pack://application:,,,/Assets/ecoroute.ico"
+        Width="440"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
-        Background="#F4F8F5"
-        ResizeMode="NoResize">
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        FontFamily="{StaticResource BodyFont}"
+        Language="id-ID"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
-    <Grid Margin="36">
-        <Border Background="White"
-                CornerRadius="20"
-                Padding="28"
-                VerticalAlignment="Center">
-            <StackPanel>
+    <!-- Margin = ruang untuk bayangan kartu -->
+    <Border Margin="20"
+            Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource BorderLightBrush}"
+            BorderThickness="1"
+            CornerRadius="24">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Color="#0F2A1C" Opacity="0.18"/>
+        </Border.Effect>
+
+        <Grid>
+            <!-- Tombol tutup -->
+            <Button Style="{StaticResource IconButtonStyle}"
+                    Content="&#xE711;"
+                    FontSize="12"
+                    ToolTip="Tutup"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,12,0"
+                    IsCancel="True"
+                    Click="TombolTutup_Click"/>
+
+            <StackPanel Margin="36,40,36,32">
+
+                <!-- Brand -->
+                <Image Source="{StaticResource LogoTile}"
+                       Width="64"
+                       Height="64"
+                       HorizontalAlignment="Center"/>
 
                 <TextBlock Text="EcoRoute"
+                           Style="{StaticResource DisplayText}"
                            FontSize="32"
-                           FontWeight="Bold"
-                           Foreground="#217A53"
-                           HorizontalAlignment="Center"/>
-
-                <TextBlock Text="Perjalanan lebih bijak, bumi lebih baik."
-                           FontSize="12"
-                           Foreground="#64748B"
                            HorizontalAlignment="Center"
-                           Margin="0,8,0,24"/>
+                           Margin="0,14,0,0"/>
+
+                <TextBlock Text="Jalan hemat, bumi sehat."
+                           Style="{StaticResource CaptionText}"
+                           FontSize="13"
+                           HorizontalAlignment="Center"
+                           Margin="0,4,0,28"/>
 
                 <TextBlock x:Name="JudulForm"
-                           Text="Masuk ke Akun"
-                           FontSize="21"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,18"/>
+                           Text="Masuk ke akun"
+                           Style="{StaticResource SectionText}"
+                           FontSize="16"
+                           Margin="0,0,0,16"/>
 
                 <StackPanel x:Name="PanelNama"
                             Visibility="Collapsed">
-                    <TextBlock Text="Nama Lengkap"
+                    <TextBlock Text="Nama lengkap"
+                               Style="{StaticResource CaptionText}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
                                Margin="0,0,0,6"/>
                     <TextBox x:Name="InputNama"
-                             Height="36"
-                             Padding="8,5"
+                             Style="{StaticResource InputBoxStyle}"
+                             Tag="Nama kamu"
                              Margin="0,0,0,14"/>
                 </StackPanel>
 
                 <TextBlock Text="Email"
+                           Style="{StaticResource CaptionText}"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
                            Margin="0,0,0,6"/>
 
                 <TextBox x:Name="InputEmail"
-                         Height="36"
-                         Padding="8,5"
+                         Style="{StaticResource InputBoxStyle}"
+                         Tag="nama@email.com"
                          Margin="0,0,0,14"/>
 
                 <TextBlock Text="Password"
+                           Style="{StaticResource CaptionText}"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
                            Margin="0,0,0,6"/>
 
                 <PasswordBox x:Name="InputPassword"
-                             Height="36"
-                             Padding="8,5"
+                             Style="{StaticResource PasswordInputStyle}"
                              Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="PesanError"
-                           Foreground="#C62828"
+                           Foreground="{StaticResource DangerBrush}"
+                           FontSize="12"
                            TextWrapping="Wrap"
                            Margin="0,0,0,12"
                            Visibility="Collapsed"/>
 
                 <Button x:Name="TombolSubmit"
-                        Content="Login"
-                        Height="42"
-                        Background="#217A53"
-                        Foreground="White"
-                        FontWeight="SemiBold"
-                        BorderThickness="0"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Content="Masuk"
+                        FontSize="14"
+                        Height="46"
+                        Margin="0,6,0,0"
+                        IsDefault="True"
                         Click="TombolSubmit_Click"/>
 
                 <Button x:Name="TombolGantiMode"
-                        Content="Belum punya akun? Register"
-                        Margin="0,16,0,0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Foreground="#217A53"
-                        Cursor="Hand"
+                        Style="{StaticResource LinkButtonStyle}"
+                        Content="Belum punya akun? Daftar"
+                        FontSize="13"
+                        Margin="0,18,0,0"
                         Click="TombolGantiMode_Click"/>
 
             </StackPanel>
-        </Border>
-    </Grid>
+        </Grid>
+    </Border>
 </Window>

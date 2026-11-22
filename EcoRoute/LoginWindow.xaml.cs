@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Windows;
 using EcoRoute.Services;
@@ -17,6 +17,20 @@ public partial class LoginWindow : Window
         InitializeComponent();
     }
 
+    // Jendela tanpa bingkai: geser dengan menyeret area kosong kartu
+    private void Window_MouseLeftButtonDown(
+        object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed)
+            DragMove();
+    }
+
+    private void TombolTutup_Click(
+        object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+    }
+
     private void TombolGantiMode_Click(
         object sender, RoutedEventArgs e)
     {
@@ -27,16 +41,16 @@ public partial class LoginWindow : Window
             : Visibility.Collapsed;
 
         JudulForm.Text = _modeRegister
-            ? "Buat Akun Baru"
-            : "Masuk ke Akun";
+            ? "Buat akun baru"
+            : "Masuk ke akun";
 
         TombolSubmit.Content = _modeRegister
-            ? "Register"
-            : "Login";
+            ? "Daftar"
+            : "Masuk";
 
         TombolGantiMode.Content = _modeRegister
-            ? "Sudah punya akun? Login"
-            : "Belum punya akun? Register";
+            ? "Sudah punya akun? Masuk"
+            : "Belum punya akun? Daftar";
 
         PesanError.Visibility = Visibility.Collapsed;
         InputPassword.Clear();
