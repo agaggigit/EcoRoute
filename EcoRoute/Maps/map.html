@@ -722,10 +722,10 @@
                     .bindTooltip('Jalan kaki ke halte', { sticky: true }));
                 layers.push(L.polyline([turun, [route.destination.lat, route.destination.lng]], walkStyle)
                     .bindTooltip('Jalan kaki ke tujuan', { sticky: true }));
-                if (hasTrafficSegments(route)) {
-                    // Jalur bus dengan data TomTom: pita biru tipis (penanda trayek) + warna kemacetan di atasnya
-                    layers.push(L.polyline(route.points, { color: BUS_COLOR, weight: 11, opacity: 0.3 })
-                        .bindTooltip(b.label, { sticky: true }));
+                // Jalur bus dengan data TomTom cukup diwarnai sesuai kemacetan (nama trayek ada di tooltip).
+                // Garis biru hanya dipakai kalau tidak ada data kemacetan untuk jalur bus.
+                const busBerwarnaLalin = hasTrafficSegments(route);
+                if (busBerwarnaLalin) {
                     addTrafficSegments(route, layers, b.label + ' · ');
                     showTrafficLegend(true);
                 } else {
@@ -736,7 +736,7 @@
                 layers.push(halteMarker(naik, 'Naik di ' + b.halteNaik.nama));
                 layers.push(halteMarker(turun, 'Turun di ' + b.halteTurun.nama));
 
-                showBusLegend(b.label);
+                showBusLegend(b.label, !busBerwarnaLalin);
             } else if (hasTrafficSegments(route)) {
                 // Data live TomTom: tiap segmen diwarnai sesuai tingkat kemacetannya
                 addTrafficSegments(route, layers, '');
@@ -798,11 +798,14 @@
             }).bindTooltip(teks, { permanent: true, direction: 'top', offset: [0, -8] });
         }
 
-        // Label jalur bus di keterangan peta (null = tidak ada rute bus)
+        // Label jalur bus di keterangan peta (null = tidak ada rute bus).
+        // Baris garis biru hanya tampil saat jalur bus benar-benar digambar biru (tanpa data kemacetan).
         let busLegendLabel = null;
+        let busLineBlue = false;
 
-        function showBusLegend(label) {
+        function showBusLegend(label, lineBlue) {
             busLegendLabel = label || null;
+            busLineBlue = busLegendLabel !== null && lineBlue === true;
             renderLegend();
         }
 
@@ -915,7 +918,9 @@
             const rute = legendSection('Rute');
             legendRow(rute, legendDot('#3B82F6'), 'Titik awal');
             legendRow(rute, legendDot('#16A34A'), 'Tujuan');
-            legendRow(rute, legendLine(BUS_COLOR), busLegendLabel || 'Jalur bus Trans Jogja');
+            if (busLineBlue) {
+                legendRow(rute, legendLine(BUS_COLOR), busLegendLabel + ' (tanpa data lalu lintas)');
+            }
             legendRow(rute, legendLine('repeating-linear-gradient(90deg, #64748B 0 3px, transparent 3px 7px)'), 'Jalan kaki ke / dari halte');
 
             const tempat = legendSection('Tempat');
