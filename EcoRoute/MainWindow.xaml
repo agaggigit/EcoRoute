@@ -14,9 +14,6 @@
         Language="id-ID"
         WindowStartupLocation="CenterScreen">
 
-    <Window.DataContext>
-        <vm:MainViewModel />
-    </Window.DataContext>
 
     <Window.Resources>
         <!-- Item rail kiri: ikon + label kecil di bawahnya -->
