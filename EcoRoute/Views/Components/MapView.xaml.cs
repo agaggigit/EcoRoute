@@ -78,7 +78,23 @@ public partial class MapView : UserControl
 
         try
         {
-            await MapBrowser.EnsureCoreWebView2Async();
+            // Simpan data WebView2 di %LOCALAPPDATA% agar selalu bisa ditulis,
+            // termasuk saat app dijalankan lewat "dotnet EcoRoute.dll"
+            // (default-nya di samping exe host, misal C:\Program Files\dotnet).
+            string userDataFolder = Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData
+                ),
+                "EcoRoute",
+                "WebView2"
+            );
+
+            CoreWebView2Environment environment =
+                await CoreWebView2Environment.CreateAsync(
+                    userDataFolder: userDataFolder
+                );
+
+            await MapBrowser.EnsureCoreWebView2Async(environment);
 
             MapBrowser.CoreWebView2.WebMessageReceived +=
                 MapBrowser_WebMessageReceived;
