@@ -163,13 +163,17 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10">
                             <Grid Margin="{TemplateBinding Padding}">
-                                <TextBlock x:Name="Placeholder"
-                                           Text="{TemplateBinding Tag}"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           VerticalAlignment="Center"
-                                           Margin="2,0,0,0"
-                                           IsHitTestVisible="False"
-                                           Visibility="Collapsed"/>
+                                <!-- PART_ContentHost menerapkan Padding TextBox sekali lagi ke teks asli,
+                                     jadi placeholder ikut digeser Padding yang sama supaya sejajar dengan caret.
+                                     Margin 2 = jarak bawaan TextBoxView sebelum huruf pertama. -->
+                                <Border Padding="{TemplateBinding Padding}" IsHitTestVisible="False">
+                                    <TextBlock x:Name="Placeholder"
+                                               Text="{TemplateBinding Tag}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="2,0,0,0"
+                                               Visibility="Collapsed"/>
+                                </Border>
                                 <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
