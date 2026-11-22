@@ -203,18 +203,9 @@ public partial class MapView : UserControl
                     "lng"
                 ).GetDouble();
 
-                string latitude = lat.ToString(
-                    "F6",
-                    CultureInfo.InvariantCulture
-                );
-
-                string longitude = lng.ToString(
-                    "F6",
-                    CultureInfo.InvariantCulture
-                );
-
-                _viewModel.TitikAsal =
-                    $"{latitude}, {longitude}";
+                // Penanda sudah digambar map.html di titik klik, jadi peta tidak perlu digeser lagi
+                _asalDariKlikPeta = true;
+                _viewModel.PilihAsalDariPeta(lat, lng);
             }
         }
         catch (Exception ex)
@@ -252,6 +243,12 @@ public partial class MapView : UserControl
         {
             await UpdateRouteAsync();
         }
+
+        if (e.PropertyName == nameof(
+                MainViewModel.PratinjauAsal))
+        {
+            await UpdateOriginPreviewAsync();
+        }
     }
 
     private async Task SynchronizeMapAsync()
@@ -260,6 +257,56 @@ public partial class MapView : UserControl
         await UpdateMapStateAsync();
         await UpdateCategoryFilterAsync();
         await UpdateRouteAsync();
+        await UpdateOriginPreviewAsync();
+    }
+
+    // true kalau pratinjau berikutnya berasal dari klik peta (penanda sudah ada, peta tidak digeser)
+    private bool _asalDariKlikPeta;
+
+    // Penanda "Titik Asal" saat input rute (State C), sebelum Hitung Emisi
+    private async Task UpdateOriginPreviewAsync()
+    {
+        bool dariKlikPeta = _asalDariKlikPeta;
+        _asalDariKlikPeta = false;
+
+        // Di luar State C penanda asal diatur oleh garis rute / UpdateMapStateAsync
+        if (!_mapReady ||
+            MapBrowser.CoreWebView2 == null ||
+            _viewModel?.CurrentState != AppState.StateC_InputRoute)
+        {
+            return;
+        }
+
+        try
+        {
+            Place? asal = _viewModel.PratinjauAsal;
+
+            if (asal == null)
+            {
+                await MapBrowser.CoreWebView2
+                    .ExecuteScriptAsync("clearOrigin();");
+                return;
+            }
+
+            string originData = JsonSerializer.Serialize(
+                new
+                {
+                    lat = asal.Lat,
+                    lng = asal.Lng,
+                    nama = asal.Nama,
+                    pan = !dariKlikPeta
+                }
+            );
+
+            await MapBrowser.CoreWebView2
+                .ExecuteScriptAsync($"showOriginPreview({originData});");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Gagal menampilkan pratinjau titik awal: {ex.Message}"
+            );
+        }
     }
 
     // Gambar garis rute hasil OSRM (State D), atau hapus kalau HasilRute null
