@@ -1,4 +1,4 @@
-
+﻿
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
@@ -15,6 +15,7 @@ public partial class MainViewModel : BaseViewModel
     private readonly RoutingService _routingService = new();
     private readonly TrafficService _trafficService = new();
     private readonly TransJogjaService _transJogja;
+    private readonly Func<double, double, CancellationToken, Task<Place?>> _cariNamaTitik;
     private SqliteDatabaseService? _databaseService;
 
     private AppState _currentState = AppState.StateA_Idle;
@@ -412,6 +413,7 @@ public partial class MainViewModel : BaseViewModel
             _teksPratinjauAsal = teks;
             PratinjauAsal = asal;
             Notifikasi = string.Empty;
+            SetelahKolomTerisi(KolomRute.Asal);
         }
         catch (Exception ex)
         {
@@ -438,6 +440,200 @@ public partial class MainViewModel : BaseViewModel
         _teksPratinjauAsal = teks;
         TitikAsal = teks;
         PratinjauAsal = new Place("Titik di peta", teks, "Koordinat", lat, lng);
+    }
+
+    // ==========================================
+    // KOLOM AKTIF + KLIK PETA
+    // ==========================================
+    // Klik peta mengisi kolom yang aktif (yang terakhir difokus). Setelah titik awal terisi,
+    // kolom aktif pindah ke tujuan supaya klik berikutnya tidak mengubah titik awal lagi.
+    private KolomRute _kolomAktif = KolomRute.Asal;
+
+    public KolomRute KolomAktif
+    {
+        get => _kolomAktif;
+        set
+        {
+            if (!SetProperty(ref _kolomAktif, value))
+                return;
+
+            OnPropertyChanged(nameof(IsAsalAktif));
+            OnPropertyChanged(nameof(IsTujuanAktif));
+            OnPropertyChanged(nameof(PetunjukKlikPeta));
+        }
+    }
+
+    public bool IsAsalAktif => KolomAktif == KolomRute.Asal;
+    public bool IsTujuanAktif => KolomAktif == KolomRute.Tujuan;
+
+    public string PetunjukKlikPeta => KolomAktif == KolomRute.Asal
+        ? "Klik peta untuk memilih titik awal"
+        : "Klik peta untuk memilih tujuan";
+
+    // Titik yang diklik dianggap tempat populer kalau sejauh ini (km) atau kurang
+    public const double JarakTempatPopulerKm = 0.075;
+
+    // Dipanggil MapView saat peta diklik. State A/B: titik jadi lokasi terpilih (kartu tempat).
+    // State C/D/E: mengisi kolom aktif. Nama tempatnya dicari menyusul (reverse geocoding).
+    public async Task PilihTitikDariPetaAsync(double lat, double lng)
+    {
+        switch (CurrentState)
+        {
+            case AppState.StateA_Idle or AppState.StateB_SearchLocation:
+                await PilihTempatDariPetaAsync(lat, lng);
+                break;
+
+            case AppState.StateC_InputRoute or AppState.StateD_RouteResult or AppState.StateE_Error:
+                await IsiKolomDariPetaAsync(lat, lng);
+                break;
+        }
+    }
+
+    private async Task PilihTempatDariPetaAsync(double lat, double lng)
+    {
+        var sementara = new Place("Titik di peta", "Mencari nama tempat...", "Titik di peta", lat, lng);
+
+        TutupPanel();
+        SearchQuery = string.Empty;
+        SelectedPlace = sementara;
+        CurrentState = AppState.StateB_SearchLocation;
+
+        Place? hasil = await CariNamaTitikAsync(lat, lng);
+
+        // User sudah memilih tempat lain selama nama dicari
+        if (!ReferenceEquals(SelectedPlace, sementara))
+            return;
+
+        SelectedPlace = hasil ?? sementara with { Alamat = TeksKoordinat(lat, lng) };
+        SearchQuery = hasil?.Nama ?? string.Empty;
+    }
+
+    private async Task IsiKolomDariPetaAsync(double lat, double lng)
+    {
+        KolomRute kolom = KolomAktif;
+        string teksKoordinat = TeksKoordinat(lat, lng);
+
+        if (kolom == KolomRute.Asal)
+            PilihAsalDariPeta(lat, lng);
+        else
+            PilihTujuanDariPeta(lat, lng);
+
+        PindahKolomSetelahTerisi(kolom);
+
+        Place? hasil = await CariNamaTitikAsync(lat, lng);
+
+        // Ganti teks koordinat dengan nama tempat, kecuali user sudah mengubah kolomnya
+        if (hasil is not null)
+        {
+            if (kolom == KolomRute.Asal && TitikAsal == teksKoordinat)
+            {
+                _teksPratinjauAsal = hasil.Nama;
+                TitikAsal = hasil.Nama;
+                PratinjauAsal = hasil;
+            }
+            else if (kolom == KolomRute.Tujuan && TitikTujuan == teksKoordinat)
+            {
+                TitikTujuan = hasil.Nama;
+                TujuanTerpilih = hasil;
+            }
+        }
+
+        HitungUlangOtomatis();
+    }
+
+    public void PilihTujuanDariPeta(double lat, double lng)
+    {
+        string teks = TeksKoordinat(lat, lng);
+        TitikTujuan = teks;
+        TujuanTerpilih = new Place("Titik di peta", teks, "Koordinat", lat, lng);
+    }
+
+    private static string TeksKoordinat(double lat, double lng) =>
+        string.Create(CultureInfo.InvariantCulture, $"{lat:F6}, {lng:F6}");
+
+    // Tempat populer terdekat (kalau dalam 75 m) atau nama dari Nominatim. Gagal -> null (koordinat tetap dipakai).
+    private async Task<Place?> CariNamaTitikAsync(double lat, double lng)
+    {
+        Place? populer = TempatPopuler
+            .Select(p => (Tempat: p, Km: TransJogjaService.JarakKm(lat, lng, p.Lat, p.Lng)))
+            .Where(x => x.Km <= JarakTempatPopulerKm)
+            .OrderBy(x => x.Km)
+            .Select(x => x.Tempat)
+            .FirstOrDefault();
+
+        if (populer is not null)
+            return populer;
+
+        try
+        {
+            return await _cariNamaTitik(lat, lng, CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    // Kolom terisi (klik peta, Enter, atau saran) -> pindah kolom aktif, lalu hitung ulang kalau hasil sudah tampil
+    private void SetelahKolomTerisi(KolomRute kolom)
+    {
+        PindahKolomSetelahTerisi(kolom);
+        HitungUlangOtomatis();
+    }
+
+    private void PindahKolomSetelahTerisi(KolomRute kolom)
+    {
+        if (kolom == KolomRute.Asal && string.IsNullOrWhiteSpace(TitikTujuan))
+            KolomAktif = KolomRute.Tujuan;
+        else if (kolom == KolomRute.Tujuan && string.IsNullOrWhiteSpace(TitikAsal))
+            KolomAktif = KolomRute.Asal;
+    }
+
+    // Hasil (State D) atau error (State E) sedang tampil dan lokasi diganti -> langsung hitung ulang
+    private void HitungUlangOtomatis()
+    {
+        if (CurrentState is AppState.StateD_RouteResult or AppState.StateE_Error &&
+            HitungEmisiCommand.CanExecute(null))
+        {
+            HitungEmisiCommand.Execute(null);
+        }
+    }
+
+    // ==========================================
+    // PRATINJAU TUJUAN (Enter di kolom tujuan)
+    // ==========================================
+    public ICommand PratinjauTujuanCommand { get; }
+
+    public async Task PratinjauTujuanAsync()
+    {
+        string teks = TitikTujuan.Trim();
+        if (teks.Length == 0 || IsMencari)
+            return;
+
+        IsMencari = true;
+        try
+        {
+            Place tujuan = await CariKoordinatAsync(teks, "Tujuan");
+
+            if (!string.Equals(TitikTujuan.Trim(), teks, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            TujuanTerpilih = tujuan with { Nama = teks };
+            Notifikasi = string.Empty;
+            SetelahKolomTerisi(KolomRute.Tujuan);
+        }
+        catch (Exception ex)
+        {
+            TujuanTerpilih = null;
+            _ = TampilkanNotifikasiSementaraAsync(
+                ex is RoutingException
+                    ? ex.Message
+                    : $"Tujuan tidak ditemukan: {ex.Message}");
+        }
+        finally
+        {
+            IsMencari = false;
+        }
     }
 
     public string TitikTujuan
@@ -483,12 +679,14 @@ public partial class MainViewModel : BaseViewModel
         TitikAsal = place.Nama;
         PratinjauAsal = place;
         Notifikasi = string.Empty;
+        SetelahKolomTerisi(KolomRute.Asal);
     }
 
     private void PilihSaranTujuan(Place place)
     {
         TitikTujuan = place.Nama;
         TujuanTerpilih = place;
+        SetelahKolomTerisi(KolomRute.Tujuan);
     }
 
     private void TutupSemuaSaran()
@@ -617,7 +815,8 @@ public partial class MainViewModel : BaseViewModel
         int userId,
         TransJogjaService? transJogja = null,
         Func<string, CancellationToken, Task<IReadOnlyList<Place>>>? cariSaranOnline = null,
-        TimeSpan? jedaSaran = null)
+        TimeSpan? jedaSaran = null,
+        Func<double, double, CancellationToken, Task<Place?>>? cariNamaTitik = null)
     {
         if (userId <= 0)
         {
@@ -628,6 +827,7 @@ public partial class MainViewModel : BaseViewModel
 
         _penggunaAktifId = userId;
         _transJogja = transJogja ?? TransJogjaService.Default;
+        _cariNamaTitik = cariNamaTitik ?? ((lat, lng, ct) => _routingService.CariNamaTitikAsync(lat, lng, ct));
 
         Func<string, CancellationToken, Task<IReadOnlyList<Place>>> online =
             cariSaranOnline ?? ((teks, ct) => _routingService.SaranTempatAsync(teks, ct));
@@ -675,6 +875,12 @@ public partial class MainViewModel : BaseViewModel
             _ => !IsMencari &&
                  CurrentState != AppState.StateL_Loading &&
                  !string.IsNullOrWhiteSpace(TitikAsal));
+
+        PratinjauTujuanCommand = new RelayCommand(
+            async _ => await PratinjauTujuanAsync(),
+            _ => !IsMencari &&
+                 CurrentState != AppState.StateL_Loading &&
+                 !string.IsNullOrWhiteSpace(TitikTujuan));
 
         ResetCommand = new RelayCommand(ExecuteReset);
         TutupCommand = new RelayCommand(ExecuteTutup);
@@ -923,8 +1129,14 @@ public partial class MainViewModel : BaseViewModel
 
     private void ExecuteMulaiRute(object? parameter)
     {
+        // Tempat terpilih jadi tujuan (tidak perlu dicari ulang), klik peta berikutnya mengisi titik awal
         if (SelectedPlace is not null)
+        {
             TitikTujuan = SelectedPlace.Nama;
+            TujuanTerpilih = SelectedPlace;
+        }
+
+        KolomAktif = KolomRute.Asal;
 
         CurrentState =
             AppState.StateC_InputRoute;
