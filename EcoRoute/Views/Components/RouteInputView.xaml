@@ -105,8 +105,13 @@
                          HorizontalAlignment="Left" VerticalAlignment="Center"/>
 
                 <TextBox Grid.Column="1" Style="{StaticResource InputBoxStyle}"
-                         Tag="Pilih titik awal, atau klik peta..."
-                         Text="{Binding TitikAsal, UpdateSourceTrigger=PropertyChanged}"/>
+                         Tag="Ketik titik awal lalu Enter, atau klik peta..."
+                         Text="{Binding TitikAsal, UpdateSourceTrigger=PropertyChanged}">
+                    <!-- Enter: cari titik awal dan tandai di peta sebelum Hitung Emisi -->
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding PratinjauAsalCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
                 <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource InputBoxStyle}"
                          Tag="Pilih tujuan..."
                          Text="{Binding TitikTujuan, UpdateSourceTrigger=PropertyChanged}"/>

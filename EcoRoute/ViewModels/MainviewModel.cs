@@ -350,7 +350,87 @@ public partial class MainViewModel : BaseViewModel
     public string TitikAsal
     {
         get => _titikAsal;
-        set => SetProperty(ref _titikAsal, value);
+        set
+        {
+            if (!SetProperty(ref _titikAsal, value))
+                return;
+
+            // Teks titik awal diubah -> pratinjau lama tidak berlaku lagi (penanda di peta hilang)
+            if (PratinjauAsal is not null &&
+                !string.Equals(
+                    (value ?? string.Empty).Trim(),
+                    _teksPratinjauAsal,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                PratinjauAsal = null;
+            }
+        }
+    }
+
+    // ==========================================
+    // PRATINJAU TITIK AWAL (Enter di kolom titik awal / klik peta)
+    // ==========================================
+    private Place? _pratinjauAsal;
+    private string _teksPratinjauAsal = string.Empty;
+
+    // Lokasi titik awal yang sudah dicari dan ditandai di peta. null = belum ada pratinjau.
+    public Place? PratinjauAsal
+    {
+        get => _pratinjauAsal;
+        private set
+        {
+            if (SetProperty(ref _pratinjauAsal, value) && value is null)
+                _teksPratinjauAsal = string.Empty;
+        }
+    }
+
+    public ICommand PratinjauAsalCommand { get; }
+
+    // Cari lokasi titik awal (koordinat, tempat populer, atau Nominatim) lalu tandai di peta
+    public async Task PratinjauAsalAsync()
+    {
+        string teks = TitikAsal.Trim();
+        if (teks.Length == 0 || IsMencari)
+            return;
+
+        IsMencari = true;
+        try
+        {
+            Place asal = await CariKoordinatAsync(teks, "Titik awal");
+
+            // Teks bisa saja berubah selama pencarian berjalan
+            if (!string.Equals(TitikAsal.Trim(), teks, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _teksPratinjauAsal = teks;
+            PratinjauAsal = asal;
+            Notifikasi = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            PratinjauAsal = null;
+            _ = TampilkanNotifikasiSementaraAsync(
+                ex is RoutingException
+                    ? ex.Message
+                    : $"Titik awal tidak ditemukan: {ex.Message}");
+        }
+        finally
+        {
+            IsMencari = false;
+        }
+    }
+
+    // Dipanggil MapView saat peta diklik di State C: koordinat langsung jadi titik awal + pratinjau
+    public void PilihAsalDariPeta(double lat, double lng)
+    {
+        string teks = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{lat:F6}, {lng:F6}");
+
+        // Teks pratinjau diisi dulu supaya setter TitikAsal tidak menghapus penanda sesaat
+        _teksPratinjauAsal = teks;
+        TitikAsal = teks;
+        PratinjauAsal = new Place("Titik di peta", teks, "Koordinat", lat, lng);
     }
 
     public string TitikTujuan
@@ -485,6 +565,12 @@ public partial class MainViewModel : BaseViewModel
         HitungEmisiCommand = new RelayCommand(
             ExecuteHitungEmisi,
             CanExecuteHitungEmisi);
+
+        PratinjauAsalCommand = new RelayCommand(
+            async _ => await PratinjauAsalAsync(),
+            _ => !IsMencari &&
+                 CurrentState != AppState.StateL_Loading &&
+                 !string.IsNullOrWhiteSpace(TitikAsal));
 
         ResetCommand = new RelayCommand(ExecuteReset);
         TutupCommand = new RelayCommand(ExecuteTutup);
@@ -763,7 +849,8 @@ public partial class MainViewModel : BaseViewModel
                     "Titik awal dan tujuan tidak boleh sama.");
             }
 
-            Place asal = await CariKoordinatAsync(
+            // Titik awal yang sudah dipratinjau (Enter / klik peta) tidak perlu dicari ulang
+            Place asal = PratinjauAsal ?? await CariKoordinatAsync(
                 TitikAsal,
                 "Titik awal");
 

@@ -574,6 +574,37 @@
             }).openPopup();
         }
 
+        // Pratinjau titik awal sebelum Hitung Emisi (data dari MapView.xaml.cs).
+        // pan = false saat asalnya klik peta: titiknya sudah terlihat, peta tidak perlu digeser.
+        function showOriginPreview(origin) {
+            if (!origin) return;
+
+            const lat = Number(origin.lat);
+            const lng = Number(origin.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+            showOrigin(lat, lng);
+
+            const popup = document.createElement('div');
+            popup.className = 'location-popup';
+            popup.textContent = origin.nama || 'Titik Asal';
+            const caption = document.createElement('small');
+            caption.textContent = 'Titik Asal';
+            popup.appendChild(caption);
+            originMarker.bindPopup(popup, { closeButton: false });
+
+            if (origin.pan === false) {
+                originMarker.openPopup();
+                return;
+            }
+
+            const zoom = Math.max(map.getZoom(), 16);
+            map.flyTo(viewWithOffset([lat, lng], zoom), zoom, { duration: 0.8 });
+            map.once('moveend', function () {
+                if (originMarker) originMarker.openPopup();
+            });
+        }
+
         function clearOrigin() {
             if (originMarker !== null) {
                 map.removeLayer(originMarker);
