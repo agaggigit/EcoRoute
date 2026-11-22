@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -205,6 +206,18 @@
         }
 
         /* ===== Skala jarak ===== */
+
+        /* Label tambahan agar angka 500 m / 1 km mudah dipahami */
+        .leaflet-control-scale::before {
+            content: "Skala peta";
+            display: block;
+            margin-bottom: 4px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-2);
+        }
+
         .leaflet-control-scale-line {
             border: 2px solid var(--text-2);
             border-top: none;
