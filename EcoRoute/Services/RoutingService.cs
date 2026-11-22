@@ -1,5 +1,6 @@
-// Layanan peta pihak ketiga (REST API via HttpClient), semuanya gratis tanpa API key:
-// - Nominatim (OpenStreetMap) : cari tempat dari nama -> koordinat (geocoding)
+﻿// Layanan peta pihak ketiga (REST API via HttpClient), semuanya gratis tanpa API key:
+// - Nominatim (OpenStreetMap) : cari tempat dari nama -> koordinat (geocoding), dan nama tempat
+//   dari titik yang diklik di peta (reverse geocoding)
 // - Photon (komoot, data OSM) : saran tempat saat mengetik (Nominatim melarang autocomplete)
 // - OSRM (routing.openstreetmap.de, server komunitas OSM) : hitung rute, jarak, dan durasi
 //   untuk tiga profil: mobil (jalan raya), sepeda, dan jalan kaki
@@ -20,6 +21,7 @@ public class RoutingException : Exception
 public class RoutingService
 {
     private const string NominatimUrl = "https://nominatim.openstreetmap.org/search";
+    private const string NominatimReverseUrl = "https://nominatim.openstreetmap.org/reverse";
     private const string RoutingUrl = "https://routing.openstreetmap.de";
     private const string PhotonUrl = "https://photon.komoot.io/api/";
 
@@ -95,6 +97,73 @@ public class RoutingService
         using JsonDocument json = await AmbilJsonAsync(url, ct);
         return ParsePhoton(json);
     }
+
+    // Nama tempat / jalan terdekat dari titik yang diklik di peta. null = tidak ada data di titik itu.
+    // Koordinat hasil tetap titik yang diklik (lebih tepat untuk rute daripada titik pusat objek OSM).
+    public async Task<Place?> CariNamaTitikAsync(double lat, double lng, CancellationToken ct = default)
+    {
+        string url = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{NominatimReverseUrl}?format=jsonv2&zoom=18&addressdetails=1&lat={lat:F6}&lon={lng:F6}");
+
+        using JsonDocument json = await AmbilJsonAsync(url, ct);
+        return ParseNamaTitik(json.RootElement, lat, lng);
+    }
+
+    // Pilih nama yang paling dikenali orang: nama tempat > jalan (+ nomor) > kampung / kelurahan
+    public static Place? ParseNamaTitik(JsonElement root, double lat, double lng)
+    {
+        if (root.ValueKind != JsonValueKind.Object || root.TryGetProperty("error", out _))
+            return null;
+
+        string? Teks(JsonElement e, string nama) =>
+            e.ValueKind == JsonValueKind.Object &&
+            e.TryGetProperty(nama, out JsonElement v) &&
+            !string.IsNullOrWhiteSpace(v.GetString())
+                ? v.GetString()!.Trim()
+                : null;
+
+        JsonElement alamat = root.TryGetProperty("address", out JsonElement a) ? a : default;
+
+        string? jalan = Teks(alamat, "road");
+        string? nomor = Teks(alamat, "house_number");
+        string? jalanLengkap = jalan is null ? null : nomor is null ? jalan : $"{jalan} No. {nomor}";
+        string? kampung = Teks(alamat, "neighbourhood") ?? Teks(alamat, "hamlet") ?? Teks(alamat, "quarter");
+        string? kelurahan = Teks(alamat, "village") ?? Teks(alamat, "suburb");
+        string? kecamatan = Teks(alamat, "city_district") ?? Teks(alamat, "municipality");
+        string? kota = Teks(alamat, "city") ?? Teks(alamat, "town") ?? Teks(alamat, "county");
+        string? tampilan = Teks(root, "display_name");
+
+        string? nama = Teks(root, "name") ?? jalanLengkap ?? kampung ?? kelurahan ?? tampilan?.Split(',')[0].Trim();
+        if (string.IsNullOrWhiteSpace(nama))
+            return null;
+
+        string keterangan = string.Join(", ",
+            new[] { jalanLengkap, kelurahan, kecamatan, kota }
+                .Where(x => x is not null && !string.Equals(x, nama, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+
+        string kategori = KategoriTitik(Teks(root, "category"), Teks(root, "type"));
+
+        return new Place(nama, keterangan.Length > 0 ? keterangan : tampilan ?? nama, kategori, lat, lng);
+    }
+
+    // Kategori OSM (bahasa Inggris) -> label singkat bahasa Indonesia untuk kartu tempat
+    private static string KategoriTitik(string? kategori, string? tipe) => (kategori, tipe) switch
+    {
+        ("highway", _) => "Jalan",
+        ("building", _) or (_, "house" or "yes") => "Bangunan",
+        ("place", _) or ("boundary", _) => "Wilayah",
+        ("amenity", "university" or "college" or "school") => "Pendidikan",
+        ("amenity", "restaurant" or "cafe" or "fast_food" or "food_court") => "Kuliner",
+        ("amenity", "place_of_worship") => "Tempat ibadah",
+        ("amenity", "hospital" or "clinic") => "Kesehatan",
+        ("shop", _) => "Belanja",
+        ("tourism", _) or ("historic", _) => "Wisata",
+        ("leisure", _) => "Taman",
+        ("railway", _) => "Transportasi",
+        _ => "Lokasi"
+    };
 
     // Area yang sama dengan ViewboxYogyakarta, tapi urutan Photon: lon kiri, lat bawah, lon kanan, lat atas
     private const string BboxYogyakarta = "110.25,-7.95,110.50,-7.65";
