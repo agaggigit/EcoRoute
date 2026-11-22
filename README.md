@@ -12,6 +12,7 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 - **Perbandingan emisi 6 moda**: Mobil, Motor, Bus, Kereta, Sepeda, Jalan Kaki, beserta saran moda yang lebih hemat.
 - **Penalti kemacetan**: kondisi Lancar, Sedang, Padat, atau Macet memengaruhi emisi dan waktu tempuh kendaraan bermotor.
 - **Riwayat perjalanan** tersimpan di PostgreSQL dan bisa dilihat dari menu *Riwayat*.
+- **Eco Score**: total CO₂ yang dihemat dibanding naik mobil, poin, level (Bibit → Tunas → Pohon → Hutan), dan perbandingan "setara X pohon menyerap CO₂ selama setahun".
 - **Penanganan error** yang ramah pengguna untuk koneksi internet terputus, lokasi tidak ditemukan, atau database tidak tersambung.
 
 ## Teknologi

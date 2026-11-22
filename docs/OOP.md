@@ -105,6 +105,18 @@ Pengali waktu hanya berlaku untuk moda yang lewat jalan raya (Mobil, Motor, Bus)
 
 Parameter konstruktor `KendaraanBermotor` sama dengan kolom tabel `emission_factor` (`faktor_emisi_dasar`, `faktor_penalti_kemacetan`). `DatabaseService.GetModaTransportasiAsync` membaca setiap baris tabel lalu membuat objek `KendaraanBermotor` atau `TransportasiAktif` sesuai kolom `kategori`.
 
+## Eco Score (`EcoScoreCalculator`)
+
+`Models/EcoScoreCalculator.cs` mengubah riwayat perjalanan menjadi ringkasan Eco Score (`EcoScoreRingkasan`): CO₂ yang dihemat, poin, level, dan perbandingan dengan pohon.
+
+- **Composition**: `EcoScoreCalculator` menyimpan daftar `ModaTransportasi` (dari database atau nilai cadangan) dan memakai moda `Mobil` sebagai acuan.
+- **Polymorphism**: penghematan satu perjalanan = `mobil.HitungEmisi(jarak) − moda.HitungEmisi(jarak)`. Calculator tidak perlu tahu apakah modanya `KendaraanBermotor` atau `TransportasiAktif`, karena tiap subclass menghitung emisinya sendiri.
+- **Kondisi lancar**: kedua emisi dihitung ulang tanpa penalti kemacetan. Emisi tersimpan di riwayat sudah termasuk penalti, jadi kalau dipakai, naik mobil saat macet akan menghasilkan "penghematan" negatif. Hasilnya juga dibatasi minimal 0.
+- **Poin dan level**: 1 kg CO₂ dihemat = 10 poin. Level: Bibit (0), Tunas (100), Pohon (500), Hutan (2000 poin).
+- **Setara pohon**: CO₂ dihemat ÷ 21 kg, yaitu rata-rata serapan satu pohon dewasa per tahun (European Environment Agency; Arbor Day Foundation menyebut ±48 lb ≈ 21,8 kg).
+
+`MainViewModel` menghitung ulang Eco Score setiap kali `RiwayatPerjalanan` atau `DaftarModa` berubah, lalu `Views/Components/EcoScoreView.xaml` menampilkannya. Datanya diambil dari riwayat pengguna yang sedang login, jadi layanan database tidak perlu diubah.
+
 ## Pengujian
 
 Unit test (xUnit) ada di `EcoRoute.Tests/`:
@@ -114,6 +126,7 @@ Unit test (xUnit) ada di `EcoRoute.Tests/`:
 | `ModaTransportasiTests.cs` | Rumus emisi, penalti kemacetan bertahap, emisi nol untuk transportasi aktif, penolakan nilai negatif, pemanggilan polimorfik pada daftar moda campuran |
 | `TingkatKemacetanTests.cs` | Tebakan kondisi lalu lintas dari jam, waktu tempuh saat macet |
 | `RoutingServiceTests.cs` | Estimasi waktu tempuh per moda |
+| `EcoScoreCalculatorTests.cs` | CO₂ dihemat per moda, tidak negatif saat macet, moda tidak dikenal, ambang level, progres, setara pohon |
 
 ```bash
 dotnet test EcoRoute.slnx
