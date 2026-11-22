@@ -244,6 +244,38 @@
             from { transform: scale(0.6); opacity: 1; }
             to   { transform: scale(2.4); opacity: 0; }
         }
+
+        /* ===== Legenda kemacetan (rute dengan data TomTom) ===== */
+        .traffic-legend {
+            margin: 16px 16px 0 0 !important;
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .traffic-legend-title {
+            margin-bottom: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-2);
+        }
+
+        .traffic-legend-row {
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+
+        .traffic-legend-row span {
+            width: 18px;
+            height: 5px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 
@@ -546,11 +578,33 @@
 
             clearRoute();
 
-            // Garis putih tebal di bawah supaya rute hijau tetap kontras di atas peta
-            routeLine = L.featureGroup([
-                L.polyline(route.points, { color: '#FFFFFF', weight: 9, opacity: 0.9 }),
-                L.polyline(route.points, { color: '#16A34A', weight: 5, opacity: 0.95 })
-            ]).addTo(map);
+            // Garis putih tebal di bawah supaya rute tetap kontras di atas peta
+            const layers = [
+                L.polyline(route.points, { color: '#FFFFFF', weight: 9, opacity: 0.9 })
+            ];
+
+            if (Array.isArray(route.segments) && route.segments.length > 0) {
+                // Data live TomTom: tiap segmen diwarnai sesuai tingkat kemacetannya
+                route.segments.forEach(function (s) {
+                    const style = TRAFFIC_STYLE[s.level] || TRAFFIC_STYLE.Lancar;
+                    const points = route.points.slice(s.from, s.to + 1);
+                    if (points.length < 2) return;
+
+                    layers.push(
+                        L.polyline(points, { color: style.color, weight: 5, opacity: 0.95 })
+                            .bindTooltip(
+                                style.label + ' · ' + Math.round(s.ratio * 100) + '% dari kecepatan normal',
+                                { sticky: true }
+                            )
+                    );
+                });
+                showTrafficLegend(true);
+            } else {
+                layers.push(L.polyline(route.points, { color: '#16A34A', weight: 5, opacity: 0.95 }));
+                showTrafficLegend(false);
+            }
+
+            routeLine = L.featureGroup(layers).addTo(map);
 
             showOrigin(route.origin.lat, route.origin.lng);
 
@@ -584,6 +638,46 @@
                 map.removeLayer(routeLine);
                 routeLine = null;
             }
+            showTrafficLegend(false);
+        }
+
+        // WARNA KEMACETAN (nama level sama dengan enum TingkatKemacetan di C#)
+        const TRAFFIC_STYLE = {
+            Lancar: { color: '#16A34A', label: 'Lancar' },
+            Sedang: { color: '#EAB308', label: 'Sedang' },
+            Padat:  { color: '#F97316', label: 'Padat' },
+            Macet:  { color: '#DC2626', label: 'Macet' }
+        };
+
+        // Legenda warna kemacetan, hanya tampil saat rute punya data live TomTom
+        const trafficLegend = L.control({ position: 'topright' });
+        trafficLegend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'traffic-legend');
+            const title = document.createElement('div');
+            title.className = 'traffic-legend-title';
+            title.textContent = 'Lalu lintas (TomTom)';
+            div.appendChild(title);
+
+            Object.keys(TRAFFIC_STYLE).forEach(function (key) {
+                const row = document.createElement('div');
+                row.className = 'traffic-legend-row';
+                const swatch = document.createElement('span');
+                swatch.style.background = TRAFFIC_STYLE[key].color;
+                row.appendChild(swatch);
+                row.appendChild(document.createTextNode(TRAFFIC_STYLE[key].label));
+                div.appendChild(row);
+            });
+            return div;
+        };
+        let trafficLegendVisible = false;
+
+        function showTrafficLegend(visible) {
+            if (visible && !trafficLegendVisible) {
+                trafficLegend.addTo(map);
+            } else if (!visible && trafficLegendVisible) {
+                trafficLegend.remove();
+            }
+            trafficLegendVisible = visible;
         }
 
         // MENGATUR IZIN KLIK PETA
