@@ -329,10 +329,13 @@ public partial class MapView : UserControl
                 return;
             }
 
-            // Segmen kemacetan hanya dikirim untuk rute jalan raya dengan data live dari TomTom.
-            // Rute sepeda / jalan kaki, atau kemacetan hasil tebakan jam -> garis satu warna (hijau).
-            KondisiLaluLintas? laluLintas = _viewModel?.LaluLintas;
-            var segments = laluLintas is { Live: true } && rute.Profil == ProfilRute.JalanRaya
+            // Segmen kemacetan hanya dikirim untuk rute jalan raya dan jalur trayek bus dengan data live
+            // dari TomTom (jalur bus punya data kemacetannya sendiri, indeksnya mengacu ke titik trayek).
+            // Rute sepeda / jalan kaki, atau kemacetan hasil tebakan jam -> garis satu warna.
+            KondisiLaluLintas? laluLintas = rute.Profil == ProfilRute.TrayekBus
+                ? _viewModel?.LaluLintasBus
+                : _viewModel?.LaluLintas;
+            var segments = laluLintas is { Live: true } && rute.Profil is ProfilRute.JalanRaya or ProfilRute.TrayekBus
                 ? laluLintas.Segmen.Select(s => new
                 {
                     from = s.IndeksAwal,

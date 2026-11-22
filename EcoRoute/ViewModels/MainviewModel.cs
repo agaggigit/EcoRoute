@@ -545,6 +545,8 @@ public partial class MainViewModel : BaseViewModel
 
     // Ringkasan kondisi lalu lintas di card hasil (State D)
     private string _ringkasanLaluLintas = string.Empty;
+    // Ringkasan kemacetan rute jalan raya; card memakai ringkasan jalur bus kalau Bus lewat trayek
+    private string _ringkasanJalanRaya = string.Empty;
     public string RingkasanLaluLintas
     {
         get => _ringkasanLaluLintas;
@@ -976,14 +978,18 @@ public partial class MainViewModel : BaseViewModel
                     asal,
                     tujuan);
 
-            // Kemacetan hanya relevan untuk jalan raya (Mobil, Motor, Bus)
-            await AmbilLaluLintasAsync(semuaRute.JalanRaya);
-
             // Bus: cari trayek Trans Jogja yang langsung menghubungkan asal & tujuan (data lokal, instan)
             RuteBus? trayek = _transJogja.CariRuteLangsung(asal, tujuan);
             _ruteBus = trayek is null
                 ? null
                 : RoutingService.BuatRuteBus(trayek, semuaRute.JalanRaya);
+
+            // Kemacetan hanya relevan untuk jalan raya (Mobil, Motor, Bus) dan jalur trayek bus.
+            // Keduanya diambil bersamaan supaya tidak menambah waktu tunggu.
+            Task lalinJalanRaya = AmbilLaluLintasAsync(semuaRute.JalanRaya);
+            Task<KondisiLaluLintas?> lalinBus = AmbilLaluLintasBusAsync(_ruteBus);
+            await Task.WhenAll(lalinJalanRaya, lalinBus);
+            LaluLintasBus = lalinBus.Result;
 
             _ruteSemuaModa = semuaRute;
             TampilkanRuteModaTerpilih();
@@ -1030,10 +1036,39 @@ public partial class MainViewModel : BaseViewModel
         if (rute is null)
             return;
 
+        // Diisi sebelum HasilRute, karena peta membaca LaluLintasBus saat HasilRute berubah
+        RingkasanLaluLintas = rute.Bus is not null && LaluLintasBus is not null
+            ? $"Jalur bus Trans Jogja {rute.Bus.KodeTrayek}: {LaluLintasBus.Ringkasan()} (live TomTom)"
+            : _ringkasanJalanRaya;
+
         HasilRute = rute;
         JarakKm = rute.JarakKm;
         KeteranganBus = SelectedModa == "Bus" ? BuatKeteranganBus(rute.Bus) : string.Empty;
     }
+
+    // Kemacetan di sepanjang jalur trayek Trans Jogja (bagian naik bus saja).
+    // null = tidak ada trayek langsung, atau data live TomTom tidak tersedia (dipakai rata-rata jalan raya).
+    private KondisiLaluLintas? _laluLintasBus;
+    public KondisiLaluLintas? LaluLintasBus
+    {
+        get => _laluLintasBus;
+        private set => SetProperty(ref _laluLintasBus, value);
+    }
+
+    private async Task<KondisiLaluLintas?> AmbilLaluLintasBusAsync(RouteResult? ruteBus)
+    {
+        if (ruteBus?.Bus is null)
+            return null;
+
+        // JarakKm rute bus = total dengan jalan kaki; segmen kemacetan hanya untuk jarak naik bus
+        return await _trafficService.AmbilKondisiAsync(ruteBus with { JarakKm = ruteBus.Bus.JarakBusKm });
+    }
+
+    // Pengali waktu tempuh akibat kemacetan untuk rute suatu moda
+    private double PengaliWaktuUntuk(RouteResult rute) =>
+        rute.Bus is not null && LaluLintasBus is not null
+            ? LaluLintasBus.PengaliWaktu
+            : LaluLintas?.PengaliWaktu ?? 1.0;
 
     private static string BuatKeteranganBus(RuteBus? bus)
     {
@@ -1073,14 +1108,10 @@ public partial class MainViewModel : BaseViewModel
         if (rute.Profil == ProfilRute.JalanRaya && LaluLintas is not null)
             return LaluLintas.HitungEmisi(moda);
 
-        // Trayek Trans Jogja: hanya bagian naik bus yang beremisi. Kemacetan per segmen hanya ada
-        // untuk rute jalan raya, jadi dipakai rata-rata emisi per km-nya pada jarak bus.
+        // Trayek Trans Jogja: hanya bagian naik bus yang beremisi. Kemacetan diukur per segmen di
+        // sepanjang jalur bus; kalau datanya tidak ada, dipakai rata-rata emisi per km jalan raya.
         if (rute.Bus is not null)
-        {
-            return LaluLintas is { JarakTotalKm: > 0 }
-                ? LaluLintas.HitungEmisi(moda) / LaluLintas.JarakTotalKm * rute.Bus.JarakBusKm
-                : moda.HitungEmisi(rute.Bus.JarakBusKm);
-        }
+            return KondisiLaluLintas.HitungEmisiBus(moda, rute.Bus.JarakBusKm, LaluLintasBus, LaluLintas);
 
         return moda.HitungEmisi(rute.JarakKm);
     }
@@ -1093,7 +1124,7 @@ public partial class MainViewModel : BaseViewModel
         if (live is not null)
         {
             LaluLintas = live;
-            RingkasanLaluLintas = BuatRingkasanLive(live);
+            _ringkasanJalanRaya = BuatRingkasanLive(live);
             return;
         }
 
@@ -1102,12 +1133,12 @@ public partial class MainViewModel : BaseViewModel
 
         if (_trafficService.AdaApiKey)
         {
-            RingkasanLaluLintas = $"{tingkat} (ditebak dari jam, data TomTom tidak tersedia)";
+            _ringkasanJalanRaya = $"{tingkat} (ditebak dari jam, data TomTom tidak tersedia)";
             _ = TampilkanNotifikasiSementaraAsync("Data lalu lintas TomTom tidak bisa diambil. Kemacetan sementara ditebak dari jam.");
         }
         else
         {
-            RingkasanLaluLintas = $"{tingkat} (ditebak dari jam, API key TomTom belum diatur)";
+            _ringkasanJalanRaya = $"{tingkat} (ditebak dari jam, API key TomTom belum diatur)";
         }
     }
 
@@ -1168,7 +1199,7 @@ public partial class MainViewModel : BaseViewModel
                 RoutingService.EstimasiWaktuMenit(
                     SelectedModa,
                     HasilRute,
-                    LaluLintas?.PengaliWaktu ?? 1.0);
+                    PengaliWaktuUntuk(HasilRute));
         }
 
         InsightText = BuatInsight(emisiPerModa);
@@ -1278,6 +1309,8 @@ public partial class MainViewModel : BaseViewModel
         _ruteBus = null;
         KeteranganBus = string.Empty;
         LaluLintas = null;
+        LaluLintasBus = null;
+        _ringkasanJalanRaya = string.Empty;
         RingkasanLaluLintas = string.Empty;
     }
 }

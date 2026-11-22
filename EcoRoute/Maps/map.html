@@ -638,32 +638,24 @@
                     .bindTooltip('Jalan kaki ke halte', { sticky: true }));
                 layers.push(L.polyline([turun, [route.destination.lat, route.destination.lng]], walkStyle)
                     .bindTooltip('Jalan kaki ke tujuan', { sticky: true }));
-                layers.push(L.polyline(route.points, { color: BUS_COLOR, weight: 5, opacity: 0.95 })
-                    .bindTooltip(b.label, { sticky: true }));
+                if (hasTrafficSegments(route)) {
+                    // Jalur bus dengan data TomTom: pita biru tipis (penanda trayek) + warna kemacetan di atasnya
+                    layers.push(L.polyline(route.points, { color: BUS_COLOR, weight: 11, opacity: 0.3 })
+                        .bindTooltip(b.label, { sticky: true }));
+                    addTrafficSegments(route, layers, b.label + ' · ');
+                    showTrafficLegend(true);
+                } else {
+                    layers.push(L.polyline(route.points, { color: BUS_COLOR, weight: 5, opacity: 0.95 })
+                        .bindTooltip(b.label, { sticky: true }));
+                    showTrafficLegend(false);
+                }
                 layers.push(halteMarker(naik, 'Naik di ' + b.halteNaik.nama));
                 layers.push(halteMarker(turun, 'Turun di ' + b.halteTurun.nama));
 
-                showTrafficLegend(false);
                 showBusLegend(b.label);
-            } else if (Array.isArray(route.segments) && route.segments.length > 0) {
+            } else if (hasTrafficSegments(route)) {
                 // Data live TomTom: tiap segmen diwarnai sesuai tingkat kemacetannya
-                route.segments.forEach(function (s) {
-                    const points = route.points.slice(s.from, s.to + 1);
-                    if (points.length < 2) return;
-
-                    // Ruas tanpa data live TomTom: abu-abu, supaya tidak tampak seperti "lancar" hasil pengukuran
-                    const style = s.live === false
-                        ? NO_LIVE_STYLE
-                        : (TRAFFIC_STYLE[s.level] || TRAFFIC_STYLE.Lancar);
-                    const tooltip = s.live === false
-                        ? 'Tanpa data live TomTom · dianggap ' + (TRAFFIC_STYLE[s.level] || TRAFFIC_STYLE.Lancar).label.toLowerCase()
-                        : style.label + ' · ' + Math.round(s.ratio * 100) + '% dari kecepatan normal';
-
-                    layers.push(
-                        L.polyline(points, { color: style.color, weight: 5, opacity: 0.95 })
-                            .bindTooltip(tooltip, { sticky: true })
-                    );
-                });
+                addTrafficSegments(route, layers, '');
                 showTrafficLegend(true);
             } else {
                 layers.push(L.polyline(route.points, { color: '#16A34A', weight: 5, opacity: 0.95 }));
@@ -763,6 +755,31 @@
             Macet:  { color: '#DC2626', label: 'Macet' }
         };
         const NO_LIVE_STYLE = { color: '#94A3B8', label: 'Tanpa data live' };
+
+        function hasTrafficSegments(route) {
+            return Array.isArray(route.segments) && route.segments.length > 0;
+        }
+
+        // Garis per segmen sesuai tingkat kemacetannya (rute jalan raya atau jalur trayek bus)
+        function addTrafficSegments(route, layers, tooltipPrefix) {
+            route.segments.forEach(function (s) {
+                const points = route.points.slice(s.from, s.to + 1);
+                if (points.length < 2) return;
+
+                // Ruas tanpa data live TomTom: abu-abu, supaya tidak tampak seperti "lancar" hasil pengukuran
+                const style = s.live === false
+                    ? NO_LIVE_STYLE
+                    : (TRAFFIC_STYLE[s.level] || TRAFFIC_STYLE.Lancar);
+                const tooltip = s.live === false
+                    ? 'Tanpa data live TomTom · dianggap ' + (TRAFFIC_STYLE[s.level] || TRAFFIC_STYLE.Lancar).label.toLowerCase()
+                    : style.label + ' · ' + Math.round(s.ratio * 100) + '% dari kecepatan normal';
+
+                layers.push(
+                    L.polyline(points, { color: style.color, weight: 5, opacity: 0.95 })
+                        .bindTooltip(tooltipPrefix + tooltip, { sticky: true })
+                );
+            });
+        }
 
         // Legenda warna kemacetan, hanya tampil saat rute punya data live TomTom
         const trafficLegend = L.control({ position: 'topright' });
