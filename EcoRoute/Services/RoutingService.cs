@@ -1,5 +1,6 @@
 // Layanan peta pihak ketiga (REST API via HttpClient), semuanya gratis tanpa API key:
 // - Nominatim (OpenStreetMap) : cari tempat dari nama -> koordinat (geocoding)
+// - Photon (komoot, data OSM) : saran tempat saat mengetik (Nominatim melarang autocomplete)
 // - OSRM (routing.openstreetmap.de, server komunitas OSM) : hitung rute, jarak, dan durasi
 //   untuk tiga profil: mobil (jalan raya), sepeda, dan jalan kaki
 using System.Globalization;
@@ -20,6 +21,7 @@ public class RoutingService
 {
     private const string NominatimUrl = "https://nominatim.openstreetmap.org/search";
     private const string RoutingUrl = "https://routing.openstreetmap.de";
+    private const string PhotonUrl = "https://photon.komoot.io/api/";
 
     // Asumsi waktu tempuh bus (lihat docs/OOP.md):
     // dikali untuk waktu berhenti di halte sepanjang jalan (makin jauh, makin banyak halte),
@@ -76,6 +78,63 @@ public class RoutingService
 
         if (hasil.Count == 0)
             throw new RoutingException($"Lokasi \"{query.Trim()}\" tidak ditemukan. Coba nama yang lebih lengkap.");
+
+        return hasil;
+    }
+
+    // Saran tempat saat user mengetik (Photon, dibatasi area Yogyakarta).
+    // Tidak ada hasil -> daftar kosong (bukan exception), karena user masih mengetik.
+    public async Task<IReadOnlyList<Place>> SaranTempatAsync(string query, CancellationToken ct, int limit = 5)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        string url = $"{PhotonUrl}?limit={limit}&lat=-7.7956&lon=110.3695&bbox={BboxYogyakarta}" +
+                     $"&q={Uri.EscapeDataString(query.Trim())}";
+
+        using JsonDocument json = await AmbilJsonAsync(url, ct);
+        return ParsePhoton(json);
+    }
+
+    // Area yang sama dengan ViewboxYogyakarta, tapi urutan Photon: lon kiri, lat bawah, lon kanan, lat atas
+    private const string BboxYogyakarta = "110.25,-7.95,110.50,-7.65";
+
+    // Ubah GeoJSON Photon jadi daftar Place. Koordinat GeoJSON berurutan [lon, lat].
+    public static IReadOnlyList<Place> ParsePhoton(JsonDocument json)
+    {
+        var hasil = new List<Place>();
+        if (!json.RootElement.TryGetProperty("features", out JsonElement features))
+            return hasil;
+
+        foreach (JsonElement fitur in features.EnumerateArray())
+        {
+            JsonElement p = fitur.GetProperty("properties");
+            JsonElement koordinat = fitur.GetProperty("geometry").GetProperty("coordinates");
+
+            string? Teks(string nama) =>
+                p.TryGetProperty(nama, out JsonElement e) && !string.IsNullOrWhiteSpace(e.GetString())
+                    ? e.GetString()
+                    : null;
+
+            string? jalan = Teks("street") is { } s
+                ? (Teks("housenumber") is { } no ? $"{s} {no}" : s)
+                : null;
+            string? nama = Teks("name") ?? jalan;
+            if (nama is null)
+                continue;
+
+            string alamat = string.Join(", ",
+                new[] { jalan, Teks("district"), Teks("city"), Teks("state") }
+                    .Where(x => x is not null && x != nama)
+                    .Distinct());
+
+            hasil.Add(new Place(
+                nama,
+                alamat.Length > 0 ? alamat : nama,
+                Kapital(Teks("osm_value")),
+                koordinat[1].GetDouble(),
+                koordinat[0].GetDouble()));
+        }
 
         return hasil;
     }
@@ -204,21 +263,26 @@ public class RoutingService
         return Math.Max(1, (int)Math.Round(menit));
     }
 
-    private static async Task<JsonDocument> AmbilJsonAsync(string url)
+    private static async Task<JsonDocument> AmbilJsonAsync(string url, CancellationToken ct = default)
     {
         try
         {
-            using HttpResponseMessage response = await Http.GetAsync(url);
+            using HttpResponseMessage response = await Http.GetAsync(url, ct);
 
             if ((int)response.StatusCode == 429)
                 throw new RoutingException("Server peta sedang sibuk. Tunggu sebentar lalu coba lagi.");
 
             response.EnsureSuccessStatusCode();
             await using Stream stream = await response.Content.ReadAsStreamAsync();
-            return await JsonDocument.ParseAsync(stream);
+            return await JsonDocument.ParseAsync(stream, cancellationToken: ct);
         }
         catch (RoutingException)
         {
+            throw;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Dibatalkan pemanggil (mis. user masih mengetik), bukan timeout
             throw;
         }
         catch (TaskCanceledException ex)
