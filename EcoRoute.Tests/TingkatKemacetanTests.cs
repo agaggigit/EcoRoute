@@ -22,10 +22,10 @@ public class TingkatKemacetanTests
         var rute = new RouteResult(
             new Place("A", "A", "Lokasi", 0, 0),
             new Place("B", "B", "Lokasi", 0, 0),
-            JarakKm: 10, DurasiMobilMenit: 20, Titik: []);
+            JarakKm: 10, DurasiMenit: 20, Titik: []);
 
         double pengaliMacet = TingkatKemacetan.Macet.PengaliWaktu();
         Assert.Equal(40, RoutingService.EstimasiWaktuMenit("Mobil", rute, pengaliMacet));
-        Assert.Equal(13, RoutingService.EstimasiWaktuMenit("Kereta", rute, pengaliMacet)); // tidak terpengaruh
+        Assert.Equal(40, RoutingService.EstimasiWaktuMenit("Sepeda", rute, pengaliMacet)); // tidak terpengaruh (10 km / 15 km/jam)
     }
 }
