@@ -94,7 +94,7 @@ public class TrafficServiceTests
         var rute = new RouteResult(
             new Place("A", "A", "Lokasi", -7.8, 110.36),
             new Place("B", "B", "Lokasi", -7.75, 110.36),
-            JarakKm: 6, DurasiMobilMenit: 12, Titik: GarisLurus(55));
+            JarakKm: 6, DurasiMenit: 12, Titik: GarisLurus(55));
 
         Assert.False(service.AdaApiKey);
         Assert.Null(await service.AmbilKondisiAsync(rute));

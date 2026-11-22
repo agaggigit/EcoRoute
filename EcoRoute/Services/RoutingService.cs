@@ -1,6 +1,7 @@
 // Layanan peta pihak ketiga (REST API via HttpClient), semuanya gratis tanpa API key:
 // - Nominatim (OpenStreetMap) : cari tempat dari nama -> koordinat (geocoding)
-// - OSRM                      : hitung rute, jarak, dan durasi antara dua koordinat
+// - OSRM (routing.openstreetmap.de, server komunitas OSM) : hitung rute, jarak, dan durasi
+//   untuk tiga profil: mobil (jalan raya), sepeda, dan jalan kaki
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -18,7 +19,17 @@ public class RoutingException : Exception
 public class RoutingService
 {
     private const string NominatimUrl = "https://nominatim.openstreetmap.org/search";
-    private const string OsrmUrl = "https://router.project-osrm.org/route/v1/driving";
+    private const string RoutingUrl = "https://routing.openstreetmap.de";
+
+    // Asumsi waktu tempuh bus (lihat docs/OOP.md):
+    // dikali untuk waktu berhenti di halte sepanjang jalan (makin jauh, makin banyak halte),
+    // ditambah untuk waktu menunggu bus datang (tetap per perjalanan, ±setengah jarak kedatangan Trans Jogja).
+    public const double PengaliHalteBus = 1.3;
+    public const double MenitTungguBus = 10;
+
+    // Kecepatan cadangan (km/jam) kalau rute sepeda / jalan kaki gagal diambil
+    private const double KecepatanCadanganSepeda = 15;
+    private const double KecepatanCadanganJalanKaki = 5;
 
     // Prioritaskan hasil di sekitar Yogyakarta (lon kiri, lat atas, lon kanan, lat bawah)
     private const string ViewboxYogyakarta = "110.25,-7.65,110.50,-7.95";
@@ -69,12 +80,53 @@ public class RoutingService
         return hasil;
     }
 
-    // Hitung rute jalan raya dari asal ke tujuan.
-    public async Task<RouteResult> HitungRuteAsync(Place asal, Place tujuan)
+    // Jalur yang dipakai tiap moda. null = moda tidak didukung (tidak ditampilkan di aplikasi).
+    // OSM tidak punya profil motor yang berbeda dari mobil untuk jalan di Jogja, jadi Motor & Bus ikut jalan raya.
+    public static ProfilRute? ProfilUntuk(string moda) => moda switch
+    {
+        "Mobil" or "Motor" or "Bus" => ProfilRute.JalanRaya,
+        "Sepeda" => ProfilRute.Sepeda,
+        "Jalan Kaki" => ProfilRute.JalanKaki,
+        _ => null
+    };
+
+    private static string UrlProfil(ProfilRute profil) => profil switch
+    {
+        ProfilRute.Sepeda => $"{RoutingUrl}/routed-bike/route/v1/bike",
+        ProfilRute.JalanKaki => $"{RoutingUrl}/routed-foot/route/v1/foot",
+        _ => $"{RoutingUrl}/routed-car/route/v1/driving"
+    };
+
+    // Ambil rute jalan raya, sepeda, dan jalan kaki sekaligus (paralel).
+    // Rute jalan raya wajib ada; sepeda / jalan kaki yang gagal diganti rute jalan raya.
+    public async Task<RuteSemuaModa> HitungSemuaRuteAsync(Place asal, Place tujuan)
+    {
+        Task<RouteResult> jalanRaya = HitungRuteAsync(asal, tujuan, ProfilRute.JalanRaya);
+        Task<RouteResult?> sepeda = CobaHitungRuteAsync(asal, tujuan, ProfilRute.Sepeda);
+        Task<RouteResult?> jalanKaki = CobaHitungRuteAsync(asal, tujuan, ProfilRute.JalanKaki);
+
+        RouteResult raya = await jalanRaya;
+        return new RuteSemuaModa(raya, await sepeda ?? raya, await jalanKaki ?? raya);
+    }
+
+    private async Task<RouteResult?> CobaHitungRuteAsync(Place asal, Place tujuan, ProfilRute profil)
+    {
+        try
+        {
+            return await HitungRuteAsync(asal, tujuan, profil);
+        }
+        catch (RoutingException)
+        {
+            return null;
+        }
+    }
+
+    // Hitung rute dari asal ke tujuan untuk satu profil.
+    public async Task<RouteResult> HitungRuteAsync(Place asal, Place tujuan, ProfilRute profil = ProfilRute.JalanRaya)
     {
         string koordinat = string.Create(CultureInfo.InvariantCulture,
             $"{asal.Lng},{asal.Lat};{tujuan.Lng},{tujuan.Lat}");
-        string url = $"{OsrmUrl}/{koordinat}?overview=full&geometries=geojson";
+        string url = $"{UrlProfil(profil)}/{koordinat}?overview=full&geometries=geojson";
 
         using JsonDocument json = await AmbilJsonAsync(url);
         JsonElement root = json.RootElement;
@@ -95,31 +147,35 @@ public class RoutingService
             .Select(c => new[] { c[1].GetDouble(), c[0].GetDouble() })
             .ToList();
 
-        return new RouteResult(asal, tujuan, jarakKm, durasiMenit, titik);
+        return new RouteResult(asal, tujuan, jarakKm, durasiMenit, titik, profil);
     }
 
-    // Estimasi waktu tempuh per moda. Mobil memakai durasi asli OSRM,
-    // moda lain memakai kecepatan rata-rata dalam kota (km/jam).
-    // Kendaraan yang lewat jalan raya (Mobil, Motor, Bus) melambat saat macet:
-    // pengaliKemacetan diambil dari KondisiLaluLintas.PengaliWaktu (1.0 = lancar).
+    // Estimasi waktu tempuh per moda. rute = rute milik moda itu (lihat RuteSemuaModa.Untuk).
+    // pengaliKemacetan dari KondisiLaluLintas.PengaliWaktu (1.0 = lancar), hanya untuk jalan raya:
+    // - Mobil : durasi x pengali kemacetan
+    // - Motor : hanya separuh tambahan waktu akibat macet (motor bisa menyelip)
+    // - Bus   : durasi x pengali halte x pengali kemacetan + waktu menunggu bus
+    // - Sepeda / Jalan Kaki : durasi profilnya sendiri, tidak terpengaruh macet
     public static int EstimasiWaktuMenit(string moda, RouteResult rute, double pengaliKemacetan = 1.0)
     {
-        double? kecepatan = moda switch
+        ProfilRute? profil = ProfilUntuk(moda);
+        double menit;
+
+        if (profil is ProfilRute.Sepeda or ProfilRute.JalanKaki)
         {
-            "Motor" => 30,
-            "Bus" => 20,
-            "Kereta" => 45,
-            "Sepeda" => 15,
-            "Jalan Kaki" => 5,
-            _ => null // Mobil
-        };
-
-        double menit = kecepatan is null
-            ? rute.DurasiMobilMenit
-            : rute.JarakKm / kecepatan.Value * 60.0;
-
-        if (moda is "Mobil" or "Motor" or "Bus")
-            menit *= pengaliKemacetan;
+            // Rute cadangan (jalan raya) tidak punya durasi untuk profil ini -> pakai kecepatan rata-rata
+            double kecepatan = profil == ProfilRute.Sepeda ? KecepatanCadanganSepeda : KecepatanCadanganJalanKaki;
+            menit = rute.Profil == profil ? rute.DurasiMenit : rute.JarakKm / kecepatan * 60.0;
+        }
+        else
+        {
+            menit = moda switch
+            {
+                "Motor" => rute.DurasiMenit * (1 + (pengaliKemacetan - 1) / 2),
+                "Bus" => rute.DurasiMenit * PengaliHalteBus * pengaliKemacetan + MenitTungguBus,
+                _ => rute.DurasiMenit * pengaliKemacetan
+            };
+        }
 
         return Math.Max(1, (int)Math.Round(menit));
     }

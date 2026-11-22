@@ -76,14 +76,14 @@ public class ModaTransportasiTests
         List<ModaTransportasi> daftar =
         [
             new KendaraanBermotor("Mobil", "", 0.192),
-            new KendaraanBermotor("Kereta", "", 0.041),
+            new KendaraanBermotor("Bus", "", 0.089),
             new TransportasiAktif("Sepeda", ""),
         ];
 
         var emisi = daftar.Select(m => m.HitungEmisi(14.5)).ToList();
 
         Assert.Equal(2.784, emisi[0], precision: 6);
-        Assert.Equal(0.5945, emisi[1], precision: 6);
+        Assert.Equal(1.2905, emisi[1], precision: 6);
         Assert.Equal(0, emisi[2]);
     }
 }

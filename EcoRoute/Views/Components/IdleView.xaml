@@ -231,7 +231,7 @@
                                    Foreground="{StaticResource EcoGreenBrush}"
                                    Margin="0,1,10,0"/>
                         <TextBlock Grid.Column="1"
-                                   Text="Untuk jarak yang sama, naik kereta menghasilkan emisi ±5x lebih rendah dibanding mobil."
+                                   Text="Untuk jarak yang sama, naik bus menghasilkan emisi ±2x lebih rendah dibanding mobil."
                                    FontSize="12"
                                    Foreground="{StaticResource EcoGreenBrush}"
                                    TextWrapping="Wrap"/>

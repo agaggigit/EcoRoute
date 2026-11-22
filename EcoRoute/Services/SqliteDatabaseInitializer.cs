@@ -201,9 +201,16 @@ public static class SqliteDatabaseInitializer
                 ('Motor', 'bermotor', 0.1030, 1.1500),
                 ('Mobil', 'bermotor', 0.1920, 1.3500),
                 ('Bus', 'bermotor', 0.0890, 1.2500),
-                ('Kereta', 'bermotor', 0.0410, 1.0000),
                 ('Sepeda', 'aktif', 0.0000, 1.0000),
                 ('Jalan Kaki', 'aktif', 0.0000, 1.0000);
+
+            -- Kereta sudah dihapus dari aplikasi. Baris lama ikut dihapus,
+            -- kecuali masih dipakai riwayat perjalanan (tetap disimpan supaya riwayat tidak rusak).
+            DELETE FROM emission_factor
+            WHERE jenis_kendaraan = 'Kereta'
+              AND NOT EXISTS (SELECT 1 FROM trip_history WHERE moda_dipilih = 'Kereta')
+              AND NOT EXISTS (SELECT 1 FROM trip_mode_comparison WHERE jenis_kendaraan_bandingan = 'Kereta')
+              AND NOT EXISTS (SELECT 1 FROM vehicle v WHERE v.emission_factor_id = emission_factor.emission_factor_id);
             """;
 
         await using (var command = connection.CreateCommand())
