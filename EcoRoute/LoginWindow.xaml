@@ -1,0 +1,92 @@
+
+<Window x:Class="EcoRoute.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="EcoRoute - Login"
+        Width="460"
+        Height="620"
+        MinWidth="420"
+        MinHeight="550"
+        WindowStartupLocation="CenterScreen"
+        Background="#F4F8F5"
+        ResizeMode="NoResize">
+
+    <Grid Margin="36">
+        <Border Background="White"
+                CornerRadius="20"
+                Padding="28"
+                VerticalAlignment="Center">
+            <StackPanel>
+
+                <TextBlock Text="EcoRoute"
+                           FontSize="32"
+                           FontWeight="Bold"
+                           Foreground="#217A53"
+                           HorizontalAlignment="Center"/>
+
+                <TextBlock Text="Perjalanan lebih bijak, bumi lebih baik."
+                           FontSize="12"
+                           Foreground="#64748B"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,24"/>
+
+                <TextBlock x:Name="JudulForm"
+                           Text="Masuk ke Akun"
+                           FontSize="21"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,18"/>
+
+                <StackPanel x:Name="PanelNama"
+                            Visibility="Collapsed">
+                    <TextBlock Text="Nama Lengkap"
+                               Margin="0,0,0,6"/>
+                    <TextBox x:Name="InputNama"
+                             Height="36"
+                             Padding="8,5"
+                             Margin="0,0,0,14"/>
+                </StackPanel>
+
+                <TextBlock Text="Email"
+                           Margin="0,0,0,6"/>
+
+                <TextBox x:Name="InputEmail"
+                         Height="36"
+                         Padding="8,5"
+                         Margin="0,0,0,14"/>
+
+                <TextBlock Text="Password"
+                           Margin="0,0,0,6"/>
+
+                <PasswordBox x:Name="InputPassword"
+                             Height="36"
+                             Padding="8,5"
+                             Margin="0,0,0,12"/>
+
+                <TextBlock x:Name="PesanError"
+                           Foreground="#C62828"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,12"
+                           Visibility="Collapsed"/>
+
+                <Button x:Name="TombolSubmit"
+                        Content="Login"
+                        Height="42"
+                        Background="#217A53"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        BorderThickness="0"
+                        Click="TombolSubmit_Click"/>
+
+                <Button x:Name="TombolGantiMode"
+                        Content="Belum punya akun? Register"
+                        Margin="0,16,0,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="#217A53"
+                        Cursor="Hand"
+                        Click="TombolGantiMode_Click"/>
+
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
