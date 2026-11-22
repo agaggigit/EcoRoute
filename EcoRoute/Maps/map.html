@@ -11,6 +11,10 @@
     <link rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
+    <!-- Font yang sama dengan aplikasi (Plus Jakarta Sans) -->
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap">
+
     <style>
         /* Warna disamakan dengan App.xaml */
         :root {
@@ -21,6 +25,8 @@
             --text-2: #64748B;
             --border: #E2E8F0;
             --card: #FFFFFF;
+            --brand: #15803D;
+            --font: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
         }
 
         html, body {
@@ -38,7 +44,7 @@
         }
 
         .leaflet-container {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: var(--font);
         }
 
         /* Tile OSM dibuat lebih lembut supaya card & marker menonjol */
@@ -205,29 +211,29 @@
             display: none;
         }
 
-        /* ===== Skala jarak ===== */
-
-        /* Label tambahan agar angka 500 m / 1 km mudah dipahami */
-        .leaflet-control-scale::before {
-            content: "Skala peta";
-            display: block;
-            margin-bottom: 4px;
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-2);
+        /* ===== Skala jarak: pil putih kecil supaya tidak menyatu dengan peta ===== */
+        .leaflet-control-scale {
+            padding: 5px 9px 6px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.10);
         }
 
         .leaflet-control-scale-line {
-            border: 2px solid var(--text-2);
+            border: 2px solid var(--text);
             border-top: none;
-            color: var(--text-2);
-            background: rgba(255, 255, 255, 0.75);
-            font-size: 10.5px;
+            background: transparent;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.3;
+            padding: 0 4px;
         }
 
         .leaflet-bottom.leaflet-right .leaflet-control-scale {
-            margin: 0 16px 8px 0;
+            margin: 0 16px 10px 0;
         }
 
         /* ===== Marker titik asal (titik biru berdenyut) ===== */
@@ -258,36 +264,107 @@
             to   { transform: scale(2.4); opacity: 0; }
         }
 
-        /* ===== Legenda kemacetan (rute dengan data TomTom) ===== */
-        .traffic-legend {
-            margin: 16px 16px 0 0 !important;
-            padding: 8px 12px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-            font-size: 12px;
-            color: var(--text);
+        /* ===== Keterangan peta: tombol ikon, daftar terbuka ke bawah saat diklik ===== */
+        .leaflet-top.leaflet-right .map-legend {
+            margin: 76px 16px 0 0;
         }
 
-        .traffic-legend-title {
-            margin-bottom: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-2);
+        .map-legend {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            font-family: var(--font);
         }
 
-        .traffic-legend-row {
+        .map-legend-btn {
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
-            margin-top: 2px;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            color: var(--text-2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
         }
 
-        .traffic-legend-row span {
-            width: 18px;
+        .map-legend-btn:hover,
+        .map-legend.open .map-legend-btn {
+            background: #E8F7EE;
+            color: var(--brand);
+        }
+
+        .map-legend-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .map-legend-panel {
+            margin-top: 8px;
+            width: 210px;
+            padding: 12px 14px 6px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+            color: var(--text);
+            font-size: 12px;
+            transform-origin: top right;
+            transform: translateY(-6px) scale(0.97);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+
+        .map-legend.open .map-legend-panel {
+            opacity: 1;
+            transform: none;
+            pointer-events: auto;
+        }
+
+        .legend-section {
+            margin-bottom: 10px;
+        }
+
+        .legend-title {
+            margin-bottom: 5px;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #94A3B8;
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            min-height: 20px;
+        }
+
+        .legend-swatch {
+            flex: none;
+            width: 22px;
+            margin-right: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .legend-line {
+            width: 22px;
             height: 5px;
-            margin-right: 8px;
             border-radius: 3px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #FFFFFF;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
@@ -568,7 +645,7 @@
         }
 
         // MARKER TITIK ASAL
-        function showOrigin(lat, lng) {
+        function showOrigin(lat, lng, nama) {
             if (originMarker !== null) {
                 map.removeLayer(originMarker);
             }
@@ -577,7 +654,14 @@
                 icon: originIcon
             }).addTo(map);
 
-            originMarker.bindPopup('Titik Asal', {
+            const popup = document.createElement('div');
+            popup.className = 'location-popup';
+            popup.textContent = nama || 'Titik di peta';
+            const caption = document.createElement('small');
+            caption.textContent = 'Titik awal';
+            popup.appendChild(caption);
+
+            originMarker.bindPopup(popup, {
                 closeButton: false
             }).openPopup();
         }
@@ -591,15 +675,7 @@
             const lng = Number(origin.lng);
             if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-            showOrigin(lat, lng);
-
-            const popup = document.createElement('div');
-            popup.className = 'location-popup';
-            popup.textContent = origin.nama || 'Titik Asal';
-            const caption = document.createElement('small');
-            caption.textContent = 'Titik Asal';
-            popup.appendChild(caption);
-            originMarker.bindPopup(popup, { closeButton: false });
+            showOrigin(lat, lng, origin.nama);
 
             if (origin.pan === false) {
                 originMarker.openPopup();
@@ -672,7 +748,8 @@
 
             routeLine = L.featureGroup(layers).addTo(map);
 
-            showOrigin(route.origin.lat, route.origin.lng);
+            showOrigin(route.origin.lat, route.origin.lng, route.origin.nama);
+            originMarker.closePopup();
 
             // Pin tujuan tanpa animasi flyTo (peta di-fit ke seluruh rute di bawah)
             if (selectedMarker !== null) {
@@ -721,38 +798,12 @@
             }).bindTooltip(teks, { permanent: true, direction: 'top', offset: [0, -8] });
         }
 
-        // Legenda saat rute Bus mengikuti trayek
-        let busLegend = null;
+        // Label jalur bus di keterangan peta (null = tidak ada rute bus)
+        let busLegendLabel = null;
 
         function showBusLegend(label) {
-            if (busLegend !== null) {
-                busLegend.remove();
-                busLegend = null;
-            }
-            if (!label) return;
-
-            busLegend = L.control({ position: 'topright' });
-            busLegend.onAdd = function () {
-                const div = L.DomUtil.create('div', 'traffic-legend');
-                const title = document.createElement('div');
-                title.className = 'traffic-legend-title';
-                title.textContent = 'Rute bus';
-                div.appendChild(title);
-
-                [[label, BUS_COLOR, false], ['Jalan kaki', '#64748B', true]].forEach(function (item) {
-                    const row = document.createElement('div');
-                    row.className = 'traffic-legend-row';
-                    const swatch = document.createElement('span');
-                    swatch.style.background = item[2]
-                        ? 'repeating-linear-gradient(90deg, ' + item[1] + ' 0 3px, transparent 3px 7px)'
-                        : item[1];
-                    row.appendChild(swatch);
-                    row.appendChild(document.createTextNode(item[0]));
-                    div.appendChild(row);
-                });
-                return div;
-            };
-            busLegend.addTo(map);
+            busLegendLabel = label || null;
+            renderLegend();
         }
 
         // WARNA KEMACETAN (nama level sama dengan enum TingkatKemacetan di C#)
@@ -789,36 +840,94 @@
             });
         }
 
-        // Legenda warna kemacetan, hanya tampil saat rute punya data live TomTom
-        const trafficLegend = L.control({ position: 'topright' });
-        trafficLegend.onAdd = function () {
-            const div = L.DomUtil.create('div', 'traffic-legend');
-            const title = document.createElement('div');
-            title.className = 'traffic-legend-title';
-            title.textContent = 'Lalu lintas (TomTom)';
-            div.appendChild(title);
+        // KETERANGAN PETA: tombol ikon di kanan atas, daftar warna & penanda terbuka ke bawah saat diklik
+        const LEGEND_ICON =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+            'stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".55"/></svg>';
 
-            Object.values(TRAFFIC_STYLE).concat([NO_LIVE_STYLE]).forEach(function (style) {
-                const row = document.createElement('div');
-                row.className = 'traffic-legend-row';
-                const swatch = document.createElement('span');
-                swatch.style.background = style.color;
-                row.appendChild(swatch);
-                row.appendChild(document.createTextNode(style.label));
-                div.appendChild(row);
+        let legendPanel = null;
+
+        const legendControl = L.control({ position: 'topright' });
+        legendControl.onAdd = function () {
+            const wrap = L.DomUtil.create('div', 'map-legend');
+            const button = L.DomUtil.create('button', 'map-legend-btn', wrap);
+            button.type = 'button';
+            button.title = 'Keterangan peta';
+            button.innerHTML = LEGEND_ICON;
+            legendPanel = L.DomUtil.create('div', 'map-legend-panel', wrap);
+
+            L.DomEvent.disableClickPropagation(wrap);
+            L.DomEvent.disableScrollPropagation(wrap);
+            button.addEventListener('click', function () {
+                wrap.classList.toggle('open');
             });
-            return div;
-        };
-        let trafficLegendVisible = false;
 
-        function showTrafficLegend(visible) {
-            if (visible && !trafficLegendVisible) {
-                trafficLegend.addTo(map);
-            } else if (!visible && trafficLegendVisible) {
-                trafficLegend.remove();
-            }
-            trafficLegendVisible = visible;
+            renderLegend();
+            return wrap;
+        };
+
+        function legendRow(section, swatch, label) {
+            const row = document.createElement('div');
+            row.className = 'legend-row';
+            const box = document.createElement('div');
+            box.className = 'legend-swatch';
+            box.appendChild(swatch);
+            row.appendChild(box);
+            row.appendChild(document.createTextNode(label));
+            section.appendChild(row);
         }
+
+        function legendLine(background) {
+            const el = document.createElement('div');
+            el.className = 'legend-line';
+            el.style.background = background;
+            return el;
+        }
+
+        function legendDot(color) {
+            const el = document.createElement('div');
+            el.className = 'legend-dot';
+            el.style.background = color;
+            return el;
+        }
+
+        function legendSection(title) {
+            const section = document.createElement('div');
+            section.className = 'legend-section';
+            const heading = document.createElement('div');
+            heading.className = 'legend-title';
+            heading.textContent = title;
+            section.appendChild(heading);
+            legendPanel.appendChild(section);
+            return section;
+        }
+
+        function renderLegend() {
+            if (legendPanel === null) return;
+            legendPanel.innerHTML = '';
+
+            const lalin = legendSection('Lalu lintas');
+            Object.values(TRAFFIC_STYLE).concat([NO_LIVE_STYLE]).forEach(function (style) {
+                legendRow(lalin, legendLine(style.color), style.label);
+            });
+
+            const rute = legendSection('Rute');
+            legendRow(rute, legendDot('#3B82F6'), 'Titik awal');
+            legendRow(rute, legendDot('#16A34A'), 'Tujuan');
+            legendRow(rute, legendLine(BUS_COLOR), busLegendLabel || 'Jalur bus Trans Jogja');
+            legendRow(rute, legendLine('repeating-linear-gradient(90deg, #64748B 0 3px, transparent 3px 7px)'), 'Jalan kaki ke / dari halte');
+
+            const tempat = legendSection('Tempat');
+            Object.keys(CATEGORY_STYLE).forEach(function (nama) {
+                legendRow(tempat, legendDot(CATEGORY_STYLE[nama].color), nama);
+            });
+        }
+
+        // Dipertahankan untuk pemanggil lama: keterangan peta selalu memuat warna lalu lintas
+        function showTrafficLegend(visible) { }
+
+        legendControl.addTo(map);
 
         // MENGATUR TARGET KLIK PETA (dari MapView.xaml.cs)
         function setClickTarget(target) {
