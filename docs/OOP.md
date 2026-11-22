@@ -79,12 +79,18 @@ Akibatnya objek moda tidak mungkin berada dalam keadaan tidak valid, misalnya em
 
 ## Penalti kemacetan
 
-Tidak ada API lalu lintas yang gratis, jadi tingkat kemacetan ditentukan dengan dua cara:
+Kemacetan bukan input pengguna, karena pengguna tidak tahu kondisi tiap ruas jalan. Nilainya diambil otomatis **per segmen rute**:
 
-1. **Tebakan awal dari jam** (`TingkatKemacetanInfo.Default`): jam sibuk hari kerja (06.30–09.00 dan 16.00–19.00) dianggap Padat, siang hari Sedang, malam dan dini hari Lancar. Pada akhir pekan, jam sibuk turun satu tingkat menjadi Sedang.
-2. **Pilihan pengguna** di card input rute. Hasil emisi dan waktu tempuh langsung dihitung ulang.
+1. `TrafficService.BagiSegmen` memecah garis rute OSRM menjadi segmen sama panjang (sekitar 1 segmen per km, minimal 3, maksimal 10).
+2. Untuk titik tengah tiap segmen, TomTom Traffic Flow API memberi kecepatan saat ini dan kecepatan normal. Rasionya diubah oleh `TingkatKemacetanInfo.DariRasioKecepatan`: ≥ 80% Lancar, ≥ 60% Sedang, ≥ 40% Padat, di bawahnya Macet. Jalan yang ditutup dihitung rasio 0. Segmen yang datanya gagal diambil diisi rata-rata segmen lain.
+3. `KondisiLaluLintas.HitungEmisi` menghitung emisi tiap segmen dengan tingkat kemacetannya sendiri, lalu menjumlahkannya. Contoh: 6 km lancar + 4 km macet dihitung sebagai `HitungEmisi(6, Lancar) + HitungEmisi(4, Macet)`, bukan memakai satu tingkat rata-rata untuk seluruh 10 km.
+4. Waktu tempuh memakai rasio kecepatan asli: segmen dengan kecepatan tinggal setengah butuh waktu 2× (dibatasi maksimal 4×). Pengali seluruh rute adalah rata-rata pengali segmen yang ditimbang dengan panjangnya.
 
-Contoh untuk Mobil sejauh 10 km (faktor 0.192, penalti 1.35):
+Kalau API key belum diatur atau TomTom gagal dihubungi, aplikasi menampilkan notif singkat dan memakai `KondisiLaluLintas.Tebakan`: satu segmen untuk seluruh rute dengan tingkat dari jam (`TingkatKemacetanInfo.Default`). Jam sibuk hari kerja (06.30–09.00 dan 16.00–19.00) dianggap Padat, siang hari Sedang, malam dan dini hari Lancar. Pada akhir pekan, jam sibuk turun satu tingkat menjadi Sedang.
+
+API key dibaca dari environment variable `TOMTOM_API_KEY`, atau dari key yang ditanam saat build (`AssemblyMetadata` di `EcoRoute.csproj`), sehingga tidak pernah tertulis di source code.
+
+Contoh untuk satu segmen Mobil sejauh 10 km (faktor 0.192, penalti 1.35). Pengali waktu di tabel hanya dipakai untuk tebakan dari jam, karena data TomTom memakai rasio kecepatan aslinya:
 
 | Kondisi | Penalti efektif | Emisi | Pengali waktu tempuh |
 |---|---|---|---|

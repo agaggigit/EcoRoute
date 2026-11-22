@@ -282,10 +282,24 @@ public partial class MapView : UserControl
                 return;
             }
 
+            // Segmen kemacetan hanya dikirim kalau datanya live dari TomTom.
+            // Kalau cuma tebakan dari jam, garis rute tetap satu warna (hijau).
+            KondisiLaluLintas? laluLintas = _viewModel?.LaluLintas;
+            var segments = laluLintas is { Live: true }
+                ? laluLintas.Segmen.Select(s => new
+                {
+                    from = s.IndeksAwal,
+                    to = s.IndeksAkhir,
+                    level = s.Tingkat.ToString(),
+                    ratio = s.RasioKecepatan
+                }).ToList()
+                : null;
+
             string routeData = JsonSerializer.Serialize(
                 new
                 {
                     points = rute.Titik,
+                    segments,
                     origin = new { lat = rute.Asal.Lat, lng = rute.Asal.Lng, nama = rute.Asal.Nama },
                     destination = new { lat = rute.Tujuan.Lat, lng = rute.Tujuan.Lng, nama = rute.Tujuan.Nama }
                 }

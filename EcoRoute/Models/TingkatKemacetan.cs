@@ -1,5 +1,6 @@
 // Kondisi lalu lintas saat perjalanan. Nilainya sama dengan kolom tingkat_kemacetan di schema.sql.
-// Tidak ada API lalu lintas gratis, jadi nilai awalnya ditebak dari jam (lihat Default) dan bisa diganti user.
+// Sumber nilai: TomTom Traffic Flow per segmen rute (lihat TrafficService dan KondisiLaluLintas),
+// atau tebakan dari jam (Default) kalau API key belum diatur / TomTom gagal dihubungi.
 namespace EcoRoute.Models;
 
 public enum TingkatKemacetan
@@ -22,13 +23,22 @@ public static class TingkatKemacetanInfo
         _ => 0.0
     };
 
-    // Pengali waktu tempuh untuk kendaraan yang lewat jalan raya (Mobil, Motor, Bus)
+    // Pengali waktu tempuh saat tingkat kemacetan hanya ditebak dari jam (tanpa data TomTom)
     public static double PengaliWaktu(this TingkatKemacetan kemacetan) => kemacetan switch
     {
         TingkatKemacetan.Sedang => 1.25,
         TingkatKemacetan.Padat => 1.6,
         TingkatKemacetan.Macet => 2.0,
         _ => 1.0
+    };
+
+    // Rasio kecepatan saat ini / kecepatan normal dari TomTom -> tingkat kemacetan
+    public static TingkatKemacetan DariRasioKecepatan(double rasio) => rasio switch
+    {
+        >= 0.8 => TingkatKemacetan.Lancar,
+        >= 0.6 => TingkatKemacetan.Sedang,
+        >= 0.4 => TingkatKemacetan.Padat,
+        _ => TingkatKemacetan.Macet
     };
 
     // Tebakan awal dari jam: jam sibuk hari kerja = Padat, siang = Sedang, malam/dini hari = Lancar

@@ -13,6 +13,7 @@ public partial class MainViewModel : BaseViewModel
     private const int PenggunaAktifId = 1;
 
     private readonly RoutingService _routingService = new();
+    private readonly TrafficService _trafficService = new();
     private DatabaseService? _databaseService;
 
     private AppState _currentState = AppState.StateA_Idle;
@@ -204,18 +205,21 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
-    public IReadOnlyList<TingkatKemacetan> DaftarKemacetan { get; } = Enum.GetValues<TingkatKemacetan>();
-
-    // Nilai awal ditebak dari jam saat aplikasi dibuka; user bisa menggantinya di card input rute
-    private TingkatKemacetan _kemacetan = TingkatKemacetanInfo.Default(DateTime.Now);
-    public TingkatKemacetan Kemacetan
+    // Kondisi lalu lintas per segmen rute (data live TomTom, atau tebakan dari jam kalau gagal).
+    // Bukan input user: user tidak tahu kondisi tiap ruas jalan. null = belum ada rute.
+    private KondisiLaluLintas? _laluLintas;
+    public KondisiLaluLintas? LaluLintas
     {
-        get => _kemacetan;
-        set
-        {
-            if (SetProperty(ref _kemacetan, value) && CurrentState == AppState.StateD_RouteResult)
-                HitungUlangEmisi();
-        }
+        get => _laluLintas;
+        private set => SetProperty(ref _laluLintas, value);
+    }
+
+    // Ringkasan kondisi lalu lintas di card hasil (State D)
+    private string _ringkasanLaluLintas = string.Empty;
+    public string RingkasanLaluLintas
+    {
+        get => _ringkasanLaluLintas;
+        private set => SetProperty(ref _ringkasanLaluLintas, value);
     }
 
     public double JarakKm
@@ -456,6 +460,7 @@ public partial class MainViewModel : BaseViewModel
                 throw new RoutingException("Titik awal dan tujuan berada di lokasi yang sama.");
 
             RouteResult rute = await _routingService.HitungRuteAsync(asal, tujuan);
+            await AmbilLaluLintasAsync(rute);
 
             JarakKm = rute.JarakKm;
             HasilRute = rute;
@@ -476,6 +481,50 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
+    // Kemacetan per segmen dari TomTom. Gagal / tanpa key -> tebakan dari jam
+    // (tidak dianggap error, karena hasil emisi tetap bisa dihitung).
+    private async Task AmbilLaluLintasAsync(RouteResult rute)
+    {
+        KondisiLaluLintas? live = await _trafficService.AmbilKondisiAsync(rute);
+        if (live is not null)
+        {
+            LaluLintas = live;
+            RingkasanLaluLintas = BuatRingkasanLive(live);
+            return;
+        }
+
+        LaluLintas = KondisiLaluLintas.Tebakan(rute.JarakKm, rute.Titik.Count, DateTime.Now);
+        string tingkat = LaluLintas.TingkatRataRata.ToString();
+
+        if (_trafficService.AdaApiKey)
+        {
+            RingkasanLaluLintas = $"{tingkat} (ditebak dari jam, data TomTom tidak tersedia)";
+            _ = TampilkanNotifikasiSementaraAsync("Data lalu lintas TomTom tidak bisa diambil. Kemacetan sementara ditebak dari jam.");
+        }
+        else
+        {
+            RingkasanLaluLintas = $"{tingkat} (ditebak dari jam, API key TomTom belum diatur)";
+        }
+    }
+
+    private static string BuatRingkasanLive(KondisiLaluLintas kondisi)
+    {
+        string ringkasan = $"{kondisi.TingkatRataRata}: kecepatan rata-rata {kondisi.RasioRataRata:P0} dari kondisi normal.";
+        double tersendat = kondisi.JarakTersendatKm;
+        if (tersendat >= 0.05)
+            ringkasan += $" Ruas padat/macet {tersendat:0.0} km dari {kondisi.JarakTotalKm:0.0} km.";
+        return ringkasan + " (live TomTom)";
+    }
+
+    // Notif singkat di bawah peta, hilang sendiri setelah beberapa detik
+    private async Task TampilkanNotifikasiSementaraAsync(string pesan)
+    {
+        Notifikasi = pesan;
+        await Task.Delay(TimeSpan.FromSeconds(6));
+        if (Notifikasi == pesan)
+            Notifikasi = string.Empty;
+    }
+
     private bool CanExecuteHitungEmisi(object? parameter)
     {
         return CurrentState != AppState.StateL_Loading && !string.IsNullOrWhiteSpace(TitikAsal) && !string.IsNullOrWhiteSpace(TitikTujuan);
@@ -483,7 +532,10 @@ public partial class MainViewModel : BaseViewModel
 
     private void HitungUlangEmisi()
     {
-        var emisiPerModa = DaftarModa.Select(m => (Moda: m, Emisi: m.HitungEmisi(JarakKm, Kemacetan))).ToList();
+        // Emisi tiap moda dihitung per segmen sesuai kondisi lalu lintasnya masing-masing
+        var emisiPerModa = DaftarModa
+            .Select(m => (Moda: m, Emisi: LaluLintas?.HitungEmisi(m) ?? m.HitungEmisi(JarakKm)))
+            .ToList();
         double emisiMax = emisiPerModa.Max(x => x.Emisi);
         double emisiMin = emisiPerModa.Min(x => x.Emisi);
 
@@ -499,7 +551,7 @@ public partial class MainViewModel : BaseViewModel
 
         EmisiKarbonKg = emisiPerModa.FirstOrDefault(x => x.Moda.Nama == SelectedModa).Emisi;
         if (HasilRute is not null)
-            EstimasiWaktuMenit = RoutingService.EstimasiWaktuMenit(SelectedModa, HasilRute, Kemacetan);
+            EstimasiWaktuMenit = RoutingService.EstimasiWaktuMenit(SelectedModa, HasilRute, LaluLintas?.PengaliWaktu ?? 1.0);
         InsightText = BuatInsight(emisiPerModa);
     }
 
@@ -510,13 +562,16 @@ public partial class MainViewModel : BaseViewModel
 
         string insightModa = BuatInsightModa(emisiPerModa);
 
-        // Tambahan emisi akibat kemacetan dibanding kondisi lancar (kalau modanya terpengaruh)
+        // Tambahan emisi akibat kemacetan saat ini dibanding kalau semua ruas lancar
         ModaTransportasi? moda = DaftarModa.FirstOrDefault(m => m.Nama == SelectedModa);
-        if (Kemacetan == TingkatKemacetan.Lancar || moda is not KendaraanBermotor { TerpengaruhKemacetan: true })
+        if (moda is not KendaraanBermotor { TerpengaruhKemacetan: true })
             return insightModa;
 
         double tambahan = EmisiKarbonKg - moda.HitungEmisi(JarakKm);
-        return $"{insightModa} Lalu lintas {Kemacetan.ToString().ToLower()} menambah {tambahan:0.00} kg CO₂ dibanding kondisi lancar.";
+        if (tambahan < 0.005)
+            return insightModa;
+
+        return $"{insightModa} Kemacetan saat ini menambah {tambahan:0.00} kg CO₂ dibanding kalau semua jalan lancar.";
     }
 
     private string BuatInsightModa(List<(ModaTransportasi Moda, double Emisi)> emisiPerModa)
@@ -540,6 +595,7 @@ public partial class MainViewModel : BaseViewModel
         TitikTujuan = string.Empty;
         ErrorMessage = string.Empty;
         HasilRute = null;
+        ResetLaluLintas();
         CurrentState = AppState.StateC_InputRoute;
     }
 
@@ -558,6 +614,13 @@ public partial class MainViewModel : BaseViewModel
         ErrorMessage = string.Empty;
         Notifikasi = string.Empty;
         HasilRute = null;
+        ResetLaluLintas();
         CurrentState = AppState.StateA_Idle;
+    }
+
+    private void ResetLaluLintas()
+    {
+        LaluLintas = null;
+        RingkasanLaluLintas = string.Empty;
     }
 }
