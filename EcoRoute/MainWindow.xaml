@@ -211,28 +211,58 @@
                         ToolTip="Menu"
                         Command="{Binding ToggleMenuCommand}"/>
 
+                    <!-- Tombol halaman: menyala hijau sesuai halaman yang sedang tampil.
+                         Jelajah hanya menutup panel, isi card (rute, hasil) tidak di-reset. -->
                     <Button
-                        Style="{StaticResource RailButtonStyle}"
                         Tag="&#xE707;"
                         Content="Jelajah"
-                        Background="{StaticResource EcoGreenSoftBrush}"
-                        Foreground="{StaticResource EcoGreenBrush}"
                         ToolTip="Jelajahi peta"
-                        Command="{Binding TutupCommand}"/>
+                        Command="{Binding BukaJelajahCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource RailButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsJelajahAktif}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
 
                     <Button
-                        Style="{StaticResource RailButtonStyle}"
                         Tag="&#xE81C;"
                         Content="Riwayat"
                         ToolTip="Riwayat perjalanan"
-                        Command="{Binding ToggleMenuCommand}"/>
+                        Command="{Binding ToggleMenuCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource RailButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMenuOpen}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
 
                     <Button
-                        Style="{StaticResource RailButtonStyle}"
                         Tag="&#x1F33F;"
                         Content="Eco Score"
                         ToolTip="Eco score kamu"
-                        Command="{Binding ToggleEcoScoreCommand}"/>
+                        Command="{Binding ToggleEcoScoreCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource RailButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsEcoScoreOpen}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
 
                 </StackPanel>
 
@@ -249,11 +279,12 @@
             <!-- Peta -->
             <components:MapView/>
 
-            <!-- Card berdasarkan state -->
+            <!-- Card berdasarkan state (disembunyikan, bukan di-reset, saat panel Riwayat / Eco Score dibuka) -->
             <Grid HorizontalAlignment="Left"
                   VerticalAlignment="Top"
                   Margin="16"
-                  Width="400">
+                  Width="400"
+                  Visibility="{Binding IsJelajahAktif, Converter={StaticResource BoolToVisibility}}">
 
                 <components:IdleView
                     Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateA_Idle'}"/>
@@ -319,16 +350,20 @@
             </ItemsControl>
 
             <!-- ====================================== -->
-            <!-- PANEL RIWAYAT -->
+            <!-- PANEL RIWAYAT & ECO SCORE -->
+            <!-- Tampil di posisi card kiri (menggantikan card Jelajah), bukan menumpuk di atasnya.
+                 VerticalAlignment Stretch di wadah + Top di panel: tinggi panel mengikuti isi,
+                 tapi tidak melebihi jendela, jadi isinya bisa di-scroll. -->
             <!-- ====================================== -->
 
+            <Grid HorizontalAlignment="Left"
+                  VerticalAlignment="Stretch"
+                  Margin="16"
+                  Width="400">
+
             <Border
-                HorizontalAlignment="Left"
-                Width="280"
-                Background="{StaticResource CardBackgroundBrush}"
-                BorderBrush="{StaticResource BorderLightBrush}"
-                BorderThickness="0,0,1,0"
-                Effect="{StaticResource FloatingShadow}"
+                Style="{StaticResource FloatingCardStyle}"
+                VerticalAlignment="Top"
                 Padding="20"
                 Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVisibility}}">
 
@@ -417,12 +452,12 @@
 
             </Border>
 
-            <!-- ====================================== -->
-            <!-- PANEL ECO SCORE (Views/Components/EcoScoreView.xaml) -->
-            <!-- ====================================== -->
-
+            <!-- Panel Eco Score (Views/Components/EcoScoreView.xaml) -->
             <components:EcoScoreView
+                VerticalAlignment="Top"
                 Visibility="{Binding IsEcoScoreOpen, Converter={StaticResource BoolToVisibility}}"/>
+
+            </Grid>
 
             <!-- ====================================== -->
             <!-- NOTIFIKASI -->
