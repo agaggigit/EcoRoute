@@ -1,5 +1,5 @@
 <!--
-    Panel Eco Score (drawer dari rail kiri). Pemilik: Annora (ringkasan riwayat) + Eco Score.
+    Panel Eco Score (tampil di posisi card kiri, menggantikan card Jelajah selama dibuka). Pemilik: Annora (ringkasan riwayat) + Eco Score.
     Binding: EcoScore (EcoScoreRingkasan dari EcoScoreCalculator), StatusRiwayat
 -->
 <UserControl x:Class="EcoRoute.Views.Components.EcoScoreView"
@@ -9,14 +9,10 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
              d:DesignHeight="720"
-             d:DesignWidth="320"
-             HorizontalAlignment="Left"
-             Width="320">
+             d:DesignWidth="400">
 
-    <Border Background="{StaticResource CardBackgroundBrush}"
-            BorderBrush="{StaticResource BorderLightBrush}"
-            BorderThickness="0,0,1,0"
-            Effect="{StaticResource FloatingShadow}"
+    <!-- Kartu di posisi card kiri (lebar mengikuti wadah di MainWindow), gaya sama dengan card lain -->
+    <Border Style="{StaticResource FloatingCardStyle}"
             Padding="20">
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">

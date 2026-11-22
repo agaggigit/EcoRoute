@@ -276,17 +276,30 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
+    // Panel Riwayat (IsMenuOpen) dan Eco Score tampil di posisi card kiri, menggantikan card
+    // Jelajah selama dibuka. Isi card Jelajah (pencarian, rute, hasil) tetap tersimpan.
     public bool IsMenuOpen
     {
         get => _isMenuOpen;
-        set => SetProperty(ref _isMenuOpen, value);
+        set
+        {
+            if (SetProperty(ref _isMenuOpen, value))
+                OnPropertyChanged(nameof(IsJelajahAktif));
+        }
     }
 
     public bool IsEcoScoreOpen
     {
         get => _isEcoScoreOpen;
-        set => SetProperty(ref _isEcoScoreOpen, value);
+        set
+        {
+            if (SetProperty(ref _isEcoScoreOpen, value))
+                OnPropertyChanged(nameof(IsJelajahAktif));
+        }
     }
+
+    // true = card Jelajah yang tampil (tidak ada panel Riwayat / Eco Score yang terbuka)
+    public bool IsJelajahAktif => !IsMenuOpen && !IsEcoScoreOpen;
 
     // ==========================================
     // ECO SCORE (dihitung dari riwayat pengguna yang login, lihat Models/EcoScoreCalculator.cs)
@@ -416,6 +429,7 @@ public partial class MainViewModel : BaseViewModel
 
     public ICommand ToggleMenuCommand { get; }
     public ICommand ToggleEcoScoreCommand { get; }
+    public ICommand BukaJelajahCommand { get; }
     public ICommand CariCommand { get; }
     public ICommand MulaiRuteCommand { get; }
     public ICommand TukarCommand { get; }
@@ -451,6 +465,10 @@ public partial class MainViewModel : BaseViewModel
 
         ToggleEcoScoreCommand =
             new RelayCommand(ExecuteToggleEcoScore);
+
+        // Tombol Jelajah di sidebar: cukup tutup panel, rute yang sedang tampil tidak di-reset
+        BukaJelajahCommand =
+            new RelayCommand(_ => TutupPanel());
 
         CariCommand = new RelayCommand(
             ExecuteCari,
@@ -587,6 +605,13 @@ public partial class MainViewModel : BaseViewModel
             await MuatRiwayatAsync();
     }
 
+    // Kembali ke card Jelajah tanpa menghapus isinya
+    private void TutupPanel()
+    {
+        IsMenuOpen = false;
+        IsEcoScoreOpen = false;
+    }
+
     // ==========================================
     // PENCARIAN TEMPAT (Nominatim)
     // ==========================================
@@ -695,6 +720,9 @@ public partial class MainViewModel : BaseViewModel
     {
         if (parameter is not Place place)
             return;
+
+        // Klik pin di peta saat panel terbuka -> tampilkan lagi card Jelajah supaya detail tempatnya terlihat
+        TutupPanel();
 
         SearchQuery = place.Nama;
         SelectedPlace = place;
