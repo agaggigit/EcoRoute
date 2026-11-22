@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:EcoRoute"
              xmlns:conv="clr-namespace:EcoRoute.Converters"
-             StartupUri="MainWindow.xaml">
+             ShutdownMode="OnExplicitShutdown">
     <!--
         Style & warna global EcoRoute. Pemilik: Affandi.
         Kalau butuh style baru, taruh dulu di UserControl.Resources masing-masing, atau minta ditambahkan di sini.

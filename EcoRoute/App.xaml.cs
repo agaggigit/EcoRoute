@@ -1,18 +1,71 @@
-﻿using System.Globalization;
+﻿
+using System;
+using System.Globalization;
 using System.Windows;
+using EcoRoute.Services;
 
 namespace EcoRoute;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(
+        StartupEventArgs e)
     {
-        // Format angka di C# pakai bahasa Indonesia (2,78 bukan 2.78).
-        // Untuk binding XAML, diatur lewat Language="id-ID" di MainWindow.
-        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = new CultureInfo("id-ID");
+        CultureInfo.CurrentCulture =
+            CultureInfo.CurrentUICulture =
+                new CultureInfo("id-ID");
+
         base.OnStartup(e);
+
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        try
+        {
+            await SqliteDatabaseInitializer.InitializeAsync();
+
+            while (true)
+            {
+                var loginWindow = new LoginWindow();
+
+                bool? loginBerhasil =
+                    loginWindow.ShowDialog();
+
+                if (loginBerhasil != true ||
+                    loginWindow.LoggedInUser is null)
+                {
+                    break;
+                }
+
+                int userId =
+                    loginWindow.LoggedInUser.UserId;
+
+                var dashboard = new MainWindow(userId);
+
+                MainWindow = dashboard;
+
+                dashboard.ShowDialog();
+
+                if (!dashboard.LogoutRequested)
+                {
+                    break;
+                }
+
+                MainWindow = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "Gagal membuka EcoRoute:\n\n" +
+                ex.Message,
+                "Kesalahan Aplikasi",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
+        }
+        finally
+        {
+            Shutdown();
+        }
     }
 }
