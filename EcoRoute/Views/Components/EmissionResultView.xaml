@@ -73,9 +73,9 @@
                     <DataTemplate.Triggers>
                         <!-- Moda yang dipilih: latar biru lembut + teks tebal -->
                         <DataTrigger Binding="{Binding IsTerpilih}" Value="True">
-                            <Setter TargetName="Row" Property="Background" Value="{StaticResource PrimaryBlueSoftBrush}"/>
-                            <Setter TargetName="Bar" Property="Background" Value="{StaticResource PrimaryBlueBrush}"/>
-                            <Setter TargetName="Ikon" Property="Foreground" Value="{StaticResource PrimaryBlueBrush}"/>
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource PrimarySoftBrush}"/>
+                            <Setter TargetName="Bar" Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                            <Setter TargetName="Ikon" Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
                             <Setter TargetName="Nama" Property="FontWeight" Value="SemiBold"/>
                             <Setter TargetName="Emisi" Property="FontWeight" Value="SemiBold"/>
                         </DataTrigger>
@@ -92,7 +92,7 @@
 
         <!-- Legenda warna -->
         <WrapPanel Margin="8,6,0,0">
-            <Ellipse Width="8" Height="8" Fill="{StaticResource PrimaryBlueBrush}" VerticalAlignment="Center"/>
+            <Ellipse Width="8" Height="8" Fill="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
             <TextBlock Text="Dipilih" Style="{StaticResource CaptionText}" Margin="4,0,12,0"/>
             <Ellipse Width="8" Height="8" Fill="{StaticResource EcoGreenBrush}" VerticalAlignment="Center"/>
             <TextBlock Text="Paling hemat" Style="{StaticResource CaptionText}" Margin="4,0,0,0"/>

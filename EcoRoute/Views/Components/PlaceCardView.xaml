@@ -82,7 +82,7 @@
                     <TextBlock Text="&#xE707;"
                                FontFamily="{StaticResource IconFont}"
                                FontSize="18"
-                               Foreground="{StaticResource PrimaryBlueBrush}"
+                               Foreground="{StaticResource PrimaryBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"/>
                 </Border>
@@ -109,7 +109,7 @@
             </Grid>
 
             <!-- TOMBOL RUTE -->
-            <Button Style="{StaticResource BlueButtonStyle}"
+            <Button Style="{StaticResource PrimaryButtonStyle}"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Center"
                     Margin="0,20,0,0"

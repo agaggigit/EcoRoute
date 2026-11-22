@@ -5,16 +5,21 @@
              xmlns:conv="clr-namespace:EcoRoute.Converters"
              ShutdownMode="OnExplicitShutdown">
     <!--
-        Style & warna global EcoRoute. Pemilik: Affandi.
-        Kalau butuh style baru, taruh dulu di UserControl.Resources masing-masing, atau minta ditambahkan di sini.
+        Style, warna, font, dan logo global EcoRoute.
+        Kalau butuh style baru, taruh dulu di UserControl.Resources masing-masing, atau tambahkan di sini.
     -->
     <Application.Resources>
 
-        <!-- ===== Warna ===== -->
+        <!-- ===== Warna =====
+             Warna utama hijau (identitas EcoRoute). Biru hanya dipakai di peta (titik asal, jalur bus). -->
+        <Color x:Key="PrimaryColor">#15803D</Color>
+        <Color x:Key="PrimaryLightColor">#22C55E</Color>
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#15803D"/>
+        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#166534"/>
+        <SolidColorBrush x:Key="PrimarySoftBrush" Color="#E8F7EE"/>
+        <SolidColorBrush x:Key="PrimaryBorderSoftBrush" Color="#BBE5CB"/>
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#3B82F6"/>
-        <SolidColorBrush x:Key="PrimaryBlueHoverBrush" Color="#2563EB"/>
-        <SolidColorBrush x:Key="PrimaryBlueSoftBrush" Color="#EFF6FF"/>
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F8F5"/>
         <SolidColorBrush x:Key="EcoGreenBrush" Color="#16A34A"/>
         <SolidColorBrush x:Key="EcoGreenSoftBrush" Color="#F0FDF4"/>
         <SolidColorBrush x:Key="DangerBrush" Color="#DC2626"/>
@@ -26,13 +31,85 @@
         <SolidColorBrush x:Key="InputBackgroundBrush" Color="#F8FAFC"/>
         <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F1F5F9"/>
 
+        <!-- Warna kondisi lalu lintas (sama dengan garis rute di peta) -->
+        <SolidColorBrush x:Key="TrafficLancarBrush" Color="#16A34A"/>
+        <SolidColorBrush x:Key="TrafficSedangBrush" Color="#CA8A04"/>
+        <SolidColorBrush x:Key="TrafficPadatBrush" Color="#EA580C"/>
+        <SolidColorBrush x:Key="TrafficMacetBrush" Color="#DC2626"/>
+
+        <LinearGradientBrush x:Key="BrandGradientBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0" Color="{StaticResource PrimaryLightColor}"/>
+            <GradientStop Offset="1" Color="{StaticResource PrimaryColor}"/>
+        </LinearGradientBrush>
+
+        <!-- ===== Font =====
+             Body: Plus Jakarta Sans. Judul: Fraunces (serif lembut, kontras dengan body). Keduanya lisensi OFL, file di folder Fonts. -->
+        <FontFamily x:Key="BodyFont">pack://application:,,,/Fonts/#Plus Jakarta Sans</FontFamily>
+        <FontFamily x:Key="HeadingFont">pack://application:,,,/Fonts/#Fraunces 9pt Soft</FontFamily>
+
         <!-- ===== Font ikon =====
              Contoh: <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE721;"/>
              Glyph: E700 menu, E721 cari, E711 tutup, E8CB tukar, E72B kembali, E81C riwayat,
-                    E783 error, E946 info, E804 mobil, E806 bus, E7C0 kereta, E805 jalan kaki.
+                    E783 error, E946 info, E804 mobil, E806 bus, E805 jalan kaki.
              Motor (U+1F6F5) dan sepeda (U+1F6B2) dari Segoe UI Symbol.
              Urutan font ini disengaja: kalau Segoe UI Symbol ditaruh di belakang, motor & sepeda jadi kotak. -->
         <FontFamily x:Key="IconFont">Segoe UI Symbol, Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <!-- ===== Logo =====
+             LogoTile: daun putih di kotak hijau (ikon aplikasi). LogoMark: daun hijau tanpa kotak.
+             Sumber yang sama dengan Assets/logo.svg dan Assets/ecoroute.ico. -->
+        <DrawingImage x:Key="LogoTile">
+            <DrawingImage.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="{StaticResource BrandGradientBrush}">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="0,0,64,64" RadiusX="15" RadiusY="15"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Geometry="M16 48 L9 55">
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="White" Thickness="4.2" StartLineCap="Round" EndLineCap="Round"/>
+                        </GeometryDrawing.Pen>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="White" Geometry="M14 50 C14 26 26 12 52 12 C52 38 38 50 14 50 Z"/>
+                    <GeometryDrawing Geometry="M20 44 C28 41 26 33 33 30 C40 27 38 21 45 18">
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="{StaticResource PrimaryBrush}" Thickness="3.6" StartLineCap="Round" EndLineCap="Round"/>
+                        </GeometryDrawing.Pen>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="{StaticResource PrimaryBrush}">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="20,44" RadiusX="4" RadiusY="4"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingImage.Drawing>
+        </DrawingImage>
+
+        <DrawingImage x:Key="LogoMark">
+            <DrawingImage.Drawing>
+                <DrawingGroup>
+                    <!-- Kotak transparan supaya ukuran gambar tetap 64x64 -->
+                    <GeometryDrawing Brush="Transparent" Geometry="M0 0 H64 V64 H0 Z"/>
+                    <GeometryDrawing Geometry="M16 48 L9 55">
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="{StaticResource PrimaryBrush}" Thickness="4.2" StartLineCap="Round" EndLineCap="Round"/>
+                        </GeometryDrawing.Pen>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="{StaticResource BrandGradientBrush}" Geometry="M14 50 C14 26 26 12 52 12 C52 38 38 50 14 50 Z"/>
+                    <GeometryDrawing Geometry="M20 44 C28 41 26 33 33 30 C40 27 38 21 45 18">
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="White" Thickness="3.6" StartLineCap="Round" EndLineCap="Round"/>
+                        </GeometryDrawing.Pen>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="White">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="20,44" RadiusX="4" RadiusY="4"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingImage.Drawing>
+        </DrawingImage>
 
         <!-- ===== Converter ===== -->
         <conv:StateToVisibilityConverter x:Key="StateToVisibility"/>
@@ -40,15 +117,25 @@
 
         <!-- ===== Efek ===== -->
         <DropShadowEffect x:Key="FloatingShadow"
-                          BlurRadius="20"
+                          BlurRadius="24"
                           ShadowDepth="4"
                           Direction="270"
-                          Color="#000000"
+                          Color="#0F2A1C"
                           Opacity="0.12"/>
 
-        <!-- ===== Teks ===== -->
+        <!-- ===== Teks =====
+             Skala: Display 28 / Title 20 / Section 14 / Body 13 / Caption 12 / Overline 11.
+             Angka penting (emisi, waktu, poin) memakai StatValueText: besar dan tebal. -->
+        <Style x:Key="DisplayText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        </Style>
+
         <Style x:Key="TitleText" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+            <Setter Property="FontSize" Value="20"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
@@ -72,30 +159,82 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
+        <!-- Label kecil di atas angka (contoh: "WAKTU", "JARAK") -->
+        <Style x:Key="OverlineText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        </Style>
+
+        <Style x:Key="StatValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        </Style>
+
+        <!-- ===== Tooltip: kartu putih kecil ===== -->
+        <Style TargetType="ToolTip">
+            <Setter Property="FontFamily" Value="{StaticResource BodyFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="MaxWidth" Value="300"/>
+            <Setter Property="HasDropShadow" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="White"
+                                BorderBrush="{StaticResource BorderLightBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="12,8"
+                                Margin="6">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.14"/>
+                            </Border.Effect>
+                            <ContentPresenter>
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap"/>
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ===== Card melayang di atas peta ===== -->
         <Style x:Key="FloatingCardStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="16"/>
-            <Setter Property="Padding" Value="16"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="18"/>
             <Setter Property="Effect" Value="{StaticResource FloatingShadow}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderLightBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
-        <!-- ===== Tombol utama (biru, rounded) ===== -->
-        <Style x:Key="BlueButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource PrimaryBlueBrush}"/>
+        <!-- ===== Scroll tanpa scrollbar (tetap bisa digulir dengan mouse wheel) ===== -->
+        <Style x:Key="HiddenScrollViewer" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="PanningMode" Value="VerticalOnly"/>
+        </Style>
+
+        <!-- ===== Tombol utama (hijau, rounded) ===== -->
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Padding" Value="14,10"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                CornerRadius="20"
+                                CornerRadius="12"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -104,11 +243,45 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource PrimaryBlueHoverBrush}"/>
+                    <Setter Property="Background" Value="{StaticResource PrimaryHoverBrush}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5"/>
+                    <Setter Property="Opacity" Value="0.45"/>
                     <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ===== Tombol kedua (garis hijau, latar putih) ===== -->
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource PrimarySoftBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D5F0DF"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.6"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ===== Tombol teks (link) ===== -->
+        <Style x:Key="LinkButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter x:Name="Isi" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource PrimaryHoverBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -152,8 +325,10 @@
             <Setter Property="Background" Value="{StaticResource InputBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderLightBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryBrush}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -162,15 +337,15 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10">
-                            <Grid Margin="{TemplateBinding Padding}">
-                                <!-- PART_ContentHost menerapkan Padding TextBox sekali lagi ke teks asli,
-                                     jadi placeholder ikut digeser Padding yang sama supaya sejajar dengan caret.
-                                     Margin 2 = jarak bawaan TextBoxView sebelum huruf pertama. -->
+                            <Grid>
+                                <!-- Teks asli sudah digeser Padding oleh TextBox sendiri, jadi Padding hanya
+                                     dipakai lagi untuk placeholder. Margin 2 = jarak bawaan sebelum huruf pertama. -->
                                 <Border Padding="{TemplateBinding Padding}" IsHitTestVisible="False">
                                     <TextBlock x:Name="Placeholder"
                                                Text="{TemplateBinding Tag}"
                                                Foreground="{StaticResource TextMutedBrush}"
                                                VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
                                                Margin="2,0,0,0"
                                                Visibility="Collapsed"/>
                                 </Border>
@@ -182,12 +357,80 @@
                                 <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource PrimaryBlueBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- ===== Input password (tampilan sama dengan InputBoxStyle) ===== -->
+        <Style x:Key="PasswordInputStyle" TargetType="PasswordBox">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{StaticResource InputBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderLightBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== Tombol jendela (minimize / maximize / close) di title bar custom ===== -->
+        <Style x:Key="CaptionButtonStyle" TargetType="Button">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CaptionCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource CaptionButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E81123"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
     </Application.Resources>

@@ -37,8 +37,8 @@
                     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{StaticResource PrimaryBlueSoftBrush}"/>
-                    <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}"/>
+                    <Setter Property="Background" Value="{StaticResource PrimarySoftBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -80,7 +80,7 @@
             </Grid>
             <TextBlock Style="{StaticResource CaptionText}" Margin="4,6,0,0">
                 <Run Text="Moda:"/>
-                <Run Text="{Binding SelectedModa, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBlueBrush}"/>
+                <Run Text="{Binding SelectedModa, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"/>
             </TextBlock>
 
             <!-- Titik awal & tujuan + penanda rute + tombol tukar -->
@@ -146,7 +146,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Button Style="{StaticResource BlueButtonStyle}"
+                <Button Style="{StaticResource PrimaryButtonStyle}"
                         Content="Hitung Emisi"
                         Padding="14,10"
                         Command="{Binding HitungEmisiCommand}"/>
@@ -158,8 +158,8 @@
             <!-- State L: loading -->
             <StackPanel Margin="0,16,0,0"
                         Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateL_Loading'}">
-                <ProgressBar IsIndeterminate="True" Height="4" Foreground="{StaticResource PrimaryBlueBrush}"
-                             Background="{StaticResource PrimaryBlueSoftBrush}" BorderThickness="0"/>
+                <ProgressBar IsIndeterminate="True" Height="4" Foreground="{StaticResource PrimaryBrush}"
+                             Background="{StaticResource PrimarySoftBrush}" BorderThickness="0"/>
                 <TextBlock Text="Menghitung rute dan emisi..." Style="{StaticResource CaptionText}"
                            HorizontalAlignment="Center" Margin="0,8,0,0"/>
             </StackPanel>
