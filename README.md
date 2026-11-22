@@ -1,20 +1,23 @@
 # EcoRoute
 
-EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandingkan jejak karbon perjalanan. Pengguna memilih titik awal, tujuan, moda transportasi, dan kondisi lalu lintas. Aplikasi lalu mengambil rute asli dari peta, menghitung emisi CO₂ setiap moda, dan menyimpan perjalanan ke riwayat.
+EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandingkan jejak karbon perjalanan. Pengguna masuk dengan akun, lalu memilih titik awal, tujuan, dan moda transportasi. Aplikasi mengambil rute asli dari peta, membaca kondisi lalu lintas tiap ruas secara otomatis, menghitung emisi CO₂ setiap moda, dan menyimpan perjalanan ke riwayat milik akun tersebut.
 
 **Tema:** Climate Action, kalkulator dan pelacak jejak karbon perjalanan.
 
 ## Fitur
 
+- **Register dan Login**: akun disimpan di database lokal, password disimpan sebagai hash PBKDF2-SHA256 (bukan teks asli).
+- **Riwayat dan Eco Score per akun**: tiap akun hanya melihat perjalanannya sendiri.
 - **Peta interaktif** (Leaflet + OpenStreetMap) dengan pin tempat populer Yogyakarta dan filter kategori.
 - **Pencarian tempat** lewat Nominatim (OpenStreetMap).
-- **Rute asli per moda** (jarak, durasi, dan garis rute) dari OSRM: jalan raya untuk Mobil dan Motor, serta jalur khusus untuk Sepeda dan Jalan Kaki. Titik awal bisa diketik atau dipilih dengan klik di peta.
+- **Rute asli per moda** (jarak, durasi, dan garis rute) dari OSRM: jalan raya untuk Mobil dan Motor, serta jalur khusus untuk Sepeda dan Jalan Kaki. Titik awal bisa diketik atau ketik koordinat langsung (contoh -7.7829, 110.3671).
 - **Trayek Trans Jogja asli untuk Bus**: aplikasi mencari satu trayek yang langsung menghubungkan titik awal dan tujuan, lalu menampilkan halte naik, halte turun, jalur bus, dan jalan kaki ke serta dari halte. Data 20 trayek diambil dari OpenStreetMap (detail di [docs/OOP.md](docs/OOP.md#trayek-trans-jogja)).
 - **Perbandingan emisi 5 moda**: Mobil, Motor, Bus, Sepeda, Jalan Kaki, masing-masing dengan jarak rutenya sendiri, beserta saran moda yang lebih hemat.
-- **Penalti kemacetan**: kondisi Lancar, Sedang, Padat, atau Macet memengaruhi emisi dan waktu tempuh kendaraan bermotor.
-- **Riwayat perjalanan** tersimpan di PostgreSQL dan bisa dilihat dari menu *Riwayat*.
-- **Eco Score**: total CO₂ yang dihemat dibanding naik mobil, poin, level (Bibit → Tunas → Pohon → Hutan), dan perbandingan "setara X pohon menyerap CO₂ selama setahun".
-- **Penanganan error** yang ramah pengguna untuk koneksi internet terputus, lokasi tidak ditemukan, atau database tidak tersambung.
+- **Kemacetan live per ruas**: rute dipecah menjadi 3–10 segmen, kecepatan tiap segmen diambil dari TomTom Traffic Flow, lalu emisi kendaraan bermotor dihitung per segmen (Lancar, Sedang, Padat, Macet). Tanpa API key atau saat TomTom gagal, kemacetan ditebak dari jam dan aplikasi tetap berjalan.
+- **Riwayat perjalanan** tersimpan di SQLite lokal dan bisa dilihat dari menu *Riwayat*.
+- **Eco Score**: total CO₂ yang dihemat dibanding naik mobil, poin, level (Bibit → Tunas → Pohon → Hutan), dan perbandingan "setara X pohon menyerap CO₂ selama setahun". CO₂ yang dihemat dihitung dalam kondisi lalu lintas lancar, jadi skor tidak naik-turun karena macet.
+- **Penanganan error** yang ramah pengguna untuk koneksi internet terputus, lokasi tidak ditemukan, atau database gagal dimuat.
+- **Logout** dengan dialog konfirmasi. Riwayat tidak hilang saat logout.
 
 ## Teknologi
 
@@ -22,52 +25,50 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 |---|---|
 | Aplikasi | C# .NET 10, WPF, pola MVVM |
 | Peta | WebView2 + Leaflet 1.9.4 + tile OpenStreetMap |
-| Web API (HttpClient) | Nominatim (geocoding), OSRM (routing) |
-| Database | PostgreSQL + Npgsql |
+| Web API (HttpClient) | Nominatim (geocoding), OSRM (routing), TomTom Traffic Flow (kemacetan live) |
+| Database | SQLite lokal + Microsoft.Data.Sqlite (dibuat otomatis, tanpa instalasi server) |
 | Pengujian | xUnit |
+| Keamanan | Hash password PBKDF2-SHA256, 210.000 iterasi, salt acak |
 
-Semua layanan peta gratis dan tidak membutuhkan API key.
+Nominatim dan OSRM gratis tanpa API key. TomTom membutuhkan API key (free tier, opsional); tanpa key, kemacetan ditebak dari jam.
 
 ## Struktur Project
 
 ```
 EcoRoute/
 ├── EcoRoute/                  Aplikasi WPF
-│   ├── Models/                Domain & OOP (ModaTransportasi, TingkatKemacetan, Place, RouteResult, ...)
-│   ├── ViewModels/            MainViewModel (state A–E), BaseViewModel, RelayCommand
-│   ├── Views/Components/      IdleView, PlaceCardView, RouteInputView, EmissionResultView, MapView
-│   ├── Services/              RoutingService (HttpClient), DatabaseService (Npgsql)
-│   ├── Maps/map.html          Peta Leaflet yang dimuat di WebView2
-│   └── Database/              schema.sql, seed.sql, test_queries.sql
+│   ├── Models/                Domain & OOP (ModaTransportasi, KendaraanBermotor, TransportasiAktif,
+│   │                          TingkatKemacetan, KondisiLaluLintas, EcoScoreCalculator, Place, RouteResult, ...)
+│   ├── ViewModels/            MainViewModel (state A–E dan Loading), BaseViewModel, RelayCommand
+│   ├── Views/Components/      IdleView, PlaceCardView, RouteInputView, EmissionResultView, EcoScoreView, MapView
+│   ├── Services/              AuthService, RoutingService (Nominatim + OSRM), TrafficService (TomTom),
+│   │                          SqliteDatabaseInitializer, SqliteDatabaseService
+│   ├── LoginWindow, LogoutDialog, MainWindow
+│   └── Maps/map.html          Peta Leaflet yang dimuat di WebView2
 ├── EcoRoute.Tests/            Unit test xUnit
-├── EcoRoute.DbTest/           Program konsol untuk menguji koneksi database
+├── EcoRoute.SqliteTest/       Program konsol untuk menguji Register dan Login ke SQLite
 └── docs/                      Dokumentasi (OOP, spesifikasi, halaman project)
 ```
 
 ## Kebutuhan Sistem
 
-- Windows 10/11 64-bit
+- Windows 10 (versi 2004 / build 19041) atau Windows 11, 64-bit
 - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (sudah terpasang bawaan di Windows 11)
-- Koneksi internet (untuk peta, pencarian, dan rute)
-- PostgreSQL 14+ (opsional, untuk menyimpan riwayat)
+- Koneksi internet (untuk peta, pencarian, rute, dan data lalu lintas)
 - API key TomTom (opsional, untuk data kemacetan live)
 - .NET 10 SDK (hanya untuk build dari source)
 
 ## Cara Menjalankan
 
-### 1. Siapkan database (opsional)
+### 1. Database (otomatis)
 
-Buat database `ecoroute`, lalu jalankan skema dan data contoh:
+EcoRoute memakai SQLite, jadi tidak ada yang perlu dipasang atau dikonfigurasi. Saat pertama dijalankan, aplikasi membuat file database, semua tabel, dan data faktor emisi sendiri di:
 
-```bash
-createdb -U postgres ecoroute
-psql -U postgres -v ON_ERROR_STOP=1 -d ecoroute -f EcoRoute/Database/schema.sql
-psql -U postgres -v ON_ERROR_STOP=1 -d ecoroute -f EcoRoute/Database/seed.sql
+```
+%LOCALAPPDATA%\EcoRoute\ecoroute.db
 ```
 
-Panduan lengkap, termasuk setup lewat pgAdmin, ada di [EcoRoute/Database/README.md](EcoRoute/Database/README.md).
-
-Aplikasi terhubung ke `localhost:5432`, database `ecoroute`, user `postgres`. Password diminta saat aplikasi dibuka. Kalau dialog password dibatalkan, aplikasi tetap bisa menghitung emisi, tetapi riwayat tidak disimpan.
+Data akun dan riwayat tersimpan di komputer yang dipakai dan tidak tersinkronisasi antarperangkat. Untuk mengosongkan data, tutup aplikasi lalu hapus file `ecoroute.db`; file akan dibuat ulang saat aplikasi dibuka lagi.
 
 ### 2. Atur API key TomTom (opsional)
 
@@ -86,7 +87,7 @@ Key tidak pernah ditulis di source code. Saat build `.exe`, key dari environment
 
 1. Unduh hasil build atau buat sendiri (lihat [Build `.exe`](#build-exe)).
 2. Pastikan `EcoRoute.exe` dan folder `Maps` berada di folder yang sama.
-3. Jalankan `EcoRoute.exe`.
+3. Jalankan `EcoRoute.exe`, lalu buat akun lewat Register atau masuk dengan akun yang sudah ada.
 
 ### 3b. Jalankan dari source
 
@@ -98,16 +99,19 @@ Bisa juga dengan membuka `EcoRoute.slnx` di Visual Studio 2026 (mendukung .NET 1
 
 ## Panduan Penggunaan
 
+0. **Register / Login.** Pada halaman awal, klik *Belum punya akun? Register*, isi nama, email, dan password (minimal 8 karakter), lalu klik *Register*. Setelah berhasil kamu langsung masuk ke dashboard. Untuk pemakaian berikutnya, cukup Login dengan email dan password yang sama.
 1. **Cari tujuan.** Ketik nama tempat di kolom pencarian lalu tekan Enter, atau klik pin/chip tempat populer. Detail lokasi tampil di card kiri.
 2. **Buat rute.** Tekan tombol *Rute*. Tempat yang dipilih otomatis menjadi tujuan.
-3. **Isi titik awal.** Ketik nama tempat, atau klik lokasi di peta (kursor berubah menjadi tanda tambah).
+3. **Isi titik awal.** Ketik nama tempat lalu tekan Enter untuk melihat penandanya di peta, ketik koordinat (contoh `-7.7829, 110.3671`), atau klik lokasi di peta (kursor berubah menjadi tanda tambah). Tombol tukar menukar titik awal dan tujuan.
 4. **Pilih moda.** Kondisi lalu lintas tidak perlu dipilih: saat rute dihitung, kemacetan tiap ruas diambil live dari TomTom (kalau API key diatur). Kalau TomTom tidak bisa dihubungi, muncul notif singkat dan kemacetan ditebak dari jam.
 5. **Tekan *Hitung Emisi*.** Garis rute tampil di peta, dan card menampilkan:
    - total emisi CO₂, jarak, dan estimasi waktu tempuh,
    - perbandingan emisi kelima moda (moda paling hemat ditandai),
    - saran moda alternatif dan tambahan emisi akibat kemacetan.
-6. Ganti moda untuk menghitung ulang secara langsung tanpa memanggil ulang API. Garis rute di peta ikut berganti, misalnya ke jalur sepeda saat memilih Sepeda.
-7. Buka menu **Riwayat** di rail kiri untuk melihat perjalanan yang tersimpan beserta total emisinya.
+6. Ganti moda untuk menghitung ulang secara langsung tanpa memanggil ulang API. Garis rute di peta ikut berganti, misalnya ke jalur sepeda saat memilih Sepeda. Perjalanan disimpan otomatis ke riwayat satu kali setiap *Hitung Emisi* ditekan, sesuai moda yang sedang terpilih saat itu. Mengganti moda sesudahnya tidak menambah entri riwayat.
+7. Buka menu **Riwayat** di rail kiri untuk melihat perjalanan yang tersimpan beserta total emisinya. Riwayat hanya menampilkan perjalanan milik akun yang sedang login.
+8. Buka menu **Eco Score** untuk melihat level (Bibit → Tunas → Pohon → Hutan), poin, CO₂ yang dihemat dibanding naik mobil, dan setara berapa pohon. 1 kg CO₂ yang dihemat bernilai 10 poin.
+9. Klik **Logout** di bagian bawah sidebar, lalu pilih *Ya, keluar* untuk kembali ke halaman Login.
 
 ## Build `.exe`
 
@@ -119,7 +123,7 @@ dotnet publish EcoRoute/EcoRoute.csproj -p:PublishProfile=win-x64
 
 Kalau environment variable `TOMTOM_API_KEY` sudah diatur, key otomatis ditanam ke exe sehingga data kemacetan live jalan di komputer mana pun. Key juga bisa diberikan langsung dengan `-p:TomTomApiKey=isi-api-key`. Key yang tertanam bisa dibongkar dari exe, jadi pakai key free tier khusus untuk project ini.
 
-Hasilnya ada di `EcoRoute/bin/publish/win-x64/`: `EcoRoute.exe` (±70 MB) dan folder `Maps/`. Bagikan keduanya bersama-sama, misalnya dalam satu file zip.
+Hasilnya ada di `EcoRoute/bin/publish/win-x64/`: `EcoRoute.exe` (±70 MB) dan folder `Maps/`. Bagikan keduanya bersama-sama, misalnya dalam satu file zip. Komputer tujuan hanya perlu WebView2 Runtime (bawaan Windows 11).
 
 ## Pengujian
 
@@ -127,17 +131,18 @@ Hasilnya ada di `EcoRoute/bin/publish/win-x64/`: `EcoRoute.exe` (±70 MB) dan fo
 dotnet test EcoRoute.slnx
 ```
 
-Unit test mencakup rumus emisi per moda, penalti kemacetan, tebakan kondisi lalu lintas, pembacaan data TomTom, dan estimasi waktu tempuh. Koneksi database bisa diuji dengan:
+Unit test (59 metode uji) mencakup rumus emisi per moda dan penalti kemacetan, tebakan kondisi lalu lintas, pembacaan data TomTom dan pembagian segmen rute, estimasi waktu tempuh, perhitungan Eco Score, pratinjau titik awal, dan perpindahan panel. 
+
+Alur Register dan Login langsung ke SQLite bisa diuji dengan:
 
 ```bash
-dotnet run --project EcoRoute.DbTest
+dotnet run --project EcoRoute.SqliteTest
 ```
 
 ## Dokumentasi
 
 - [Penerapan OOP](docs/OOP.md): encapsulation, inheritance, polymorphism, dan alasan desain class
-- [Spesifikasi awal](docs/Spesifikasi.md): state tampilan, prioritas fitur, model data, batasan project
-- [Database](EcoRoute/Database/README.md): struktur tabel dan setup PostgreSQL
+- [Spesifikasi awal](docs/Spesifikasi.md): state tampilan, prioritas fitur, model data, batasan project (rencana awal; beberapa hal berubah di versi final, lihat bagian Teknologi)
 - [Class diagram](Class%20diagram%20EcoRoute.drawio.png)
 - [Aturan pesan commit](AturanDeskripsiCommit.md)
 
@@ -148,8 +153,8 @@ Departemen Teknik Elektro dan Teknologi Informasi, Fakultas Teknik, Universitas 
 | Nama | NIM | Peran |
 |---|---|---|
 | Akio Afifian Ahsan (Ketua) | 24/542230/TK/60198 | Input rute & hasil emisi, OOP |
-| Annora Farah Aprilla Setyawan | 24/538937/TK/59766 | Peta, tampilan idle & detail lokasi, integrasi Npgsql |
-| Muhammad Affandi Argya Bagaskara | 24/538984/TK/59778 | Fondasi UI & ViewModel, database PostgreSQL, integrasi |
+| Annora Farah Aprilla Setyawan | 24/538937/TK/59766 |Peta, tampilan idle & detail lokasi, autentikasi (Register/Login), Eco Score |
+| Muhammad Affandi Argya Bagaskara | 24/538984/TK/59778 | Fondasi UI & ViewModel, database SQLite, integrasi TomTom (kemacetan live), integrasi |
 
 ## Atribusi Data
 
