@@ -22,6 +22,7 @@ public partial class MainViewModel : BaseViewModel
     private IReadOnlyList<TripHistory> _riwayatPerjalanan = [];
     private string _statusRiwayat = "Database belum terhubung. Riwayat perjalanan tidak disimpan.";
     private bool _isMenuOpen;
+    private bool _isEcoScoreOpen;
 
     // State A & B
     private string _searchQuery = string.Empty;
@@ -142,7 +143,14 @@ public partial class MainViewModel : BaseViewModel
     public IReadOnlyList<TripHistory> RiwayatPerjalanan
     {
         get => _riwayatPerjalanan;
-        private set => SetProperty(ref _riwayatPerjalanan, value);
+        private set
+        {
+            if (!SetProperty(ref _riwayatPerjalanan, value)) return;
+            OnPropertyChanged(nameof(TotalPerjalanan));
+            OnPropertyChanged(nameof(TotalJarakKm));
+            OnPropertyChanged(nameof(TotalEmisiRiwayatKg));
+            OnPropertyChanged(nameof(PerjalananTanpaEmisi));
+        }
     }
 
     public string StatusRiwayat
@@ -168,6 +176,17 @@ public partial class MainViewModel : BaseViewModel
         get => _isMenuOpen;
         set => SetProperty(ref _isMenuOpen, value);
     }
+
+    public bool IsEcoScoreOpen
+    {
+        get => _isEcoScoreOpen;
+        set => SetProperty(ref _isEcoScoreOpen, value);
+    }
+
+    public int TotalPerjalanan => RiwayatPerjalanan.Count;
+    public double TotalJarakKm => RiwayatPerjalanan.Sum(r => r.JarakKm);
+    public double TotalEmisiRiwayatKg => RiwayatPerjalanan.Sum(r => r.TotalEmisiKg);
+    public int PerjalananTanpaEmisi => RiwayatPerjalanan.Count(r => r.TotalEmisiKg <= 0);
 
     public string SearchQuery
     {
@@ -255,6 +274,7 @@ public partial class MainViewModel : BaseViewModel
     }
 
     public ICommand ToggleMenuCommand { get; }
+    public ICommand ToggleEcoScoreCommand { get; }
     public ICommand CariCommand { get; }
     public ICommand MulaiRuteCommand { get; }
     public ICommand TukarCommand { get; }
@@ -271,6 +291,7 @@ public partial class MainViewModel : BaseViewModel
         PilihKategoriCommand = new RelayCommand(p =>
             KategoriAktif = p is string nama && nama != KategoriAktif ? nama : null);
         ToggleMenuCommand = new RelayCommand(ExecuteToggleMenu);
+        ToggleEcoScoreCommand = new RelayCommand(ExecuteToggleEcoScore);
         CariCommand = new RelayCommand(ExecuteCari, _ => !IsMencari && !string.IsNullOrWhiteSpace(SearchQuery));
         MulaiRuteCommand = new RelayCommand(ExecuteMulaiRute);
         TukarCommand = new RelayCommand(_ => (TitikAsal, TitikTujuan) = (TitikTujuan, TitikAsal));
@@ -343,8 +364,19 @@ public partial class MainViewModel : BaseViewModel
 
     private async void ExecuteToggleMenu(object? parameter)
     {
-        IsMenuOpen = !IsMenuOpen;
-        if (IsMenuOpen)
+        bool buka = !IsMenuOpen;
+        IsEcoScoreOpen = false;
+        IsMenuOpen = buka;
+        if (buka)
+            await MuatRiwayatAsync();
+    }
+
+    private async void ExecuteToggleEcoScore(object? parameter)
+    {
+        bool buka = !IsEcoScoreOpen;
+        IsMenuOpen = false;
+        IsEcoScoreOpen = buka;
+        if (buka)
             await MuatRiwayatAsync();
     }
 
@@ -539,6 +571,8 @@ public partial class MainViewModel : BaseViewModel
     // Tombol X: kembali ke State A dan bersihkan semuanya
     private void ExecuteTutup(object? parameter)
     {
+        IsMenuOpen = false;
+        IsEcoScoreOpen = false;
         SearchQuery = string.Empty;
         SelectedPlace = null;
         TitikAsal = string.Empty;
