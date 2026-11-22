@@ -41,8 +41,7 @@ public partial class MainWindow : Window
             _databaseLoaded = false;
 
             MessageBox.Show(
-                "Gagal memuat database SQLite:\n\n" +
-                ex.Message,
+                "Gagal memuat database SQLite:\n\n" + ex.Message,
                 "EcoRoute",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error
@@ -54,14 +53,12 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        var hasil = MessageBox.Show(
-            "Yakin ingin logout dari EcoRoute?",
-            "Konfirmasi Logout",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question
-        );
+        var dialog = new LogoutDialog
+        {
+            Owner = this
+        };
 
-        if (hasil != MessageBoxResult.Yes)
+        if (dialog.ShowDialog() != true)
             return;
 
         LogoutRequested = true;

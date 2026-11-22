@@ -1,0 +1,109 @@
+
+<Window x:Class="EcoRoute.LogoutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Konfirmasi Logout"
+        Width="400"
+        Height="250"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Border Background="White"
+            CornerRadius="18"
+            BorderBrush="#DDEAE2"
+            BorderThickness="1"
+            Padding="24">
+
+        <Border.Effect>
+            <DropShadowEffect
+                Color="#000000"
+                BlurRadius="20"
+                ShadowDepth="4"
+                Opacity="0.2"/>
+        </Border.Effect>
+
+        <Grid>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Ikon -->
+            <Border Grid.Row="0"
+                    Width="46"
+                    Height="46"
+                    CornerRadius="14"
+                    Background="#E6F5EB"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,12">
+
+                <TextBlock Text="&#xE8AC;"
+                           FontFamily="Segoe MDL2 Assets"
+                           FontSize="22"
+                           Foreground="#16834D"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+
+            </Border>
+
+            <!-- Judul -->
+            <TextBlock Grid.Row="1"
+                       Text="Keluar dari EcoRoute?"
+                       FontSize="19"
+                       FontWeight="SemiBold"
+                       Foreground="#1F2937"
+                       Margin="0,0,0,8"/>
+
+            <!-- Keterangan -->
+            <TextBlock Grid.Row="2"
+                       Text="Kamu akan kembali ke halaman Login. Riwayat perjalanan yang tersimpan tidak akan hilang."
+                       FontSize="12"
+                       Foreground="#64748B"
+                       TextWrapping="Wrap"/>
+
+            <!-- Tombol -->
+            <Grid Grid.Row="3"
+                  Margin="0,16,0,0">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Content="Batal"
+                        Height="40"
+                        Background="#F1F5F3"
+                        Foreground="#334155"
+                        BorderThickness="0"
+                        FontWeight="SemiBold"
+                        Cursor="Hand"
+                        IsCancel="True"
+                        Click="Batal_Click"/>
+
+                <Button Grid.Column="2"
+                        Content="Ya, keluar"
+                        Height="40"
+                        Background="#16834D"
+                        Foreground="White"
+                        BorderThickness="0"
+                        FontWeight="SemiBold"
+                        Cursor="Hand"
+                        IsDefault="True"
+                        Click="Keluar_Click"/>
+
+            </Grid>
+
+        </Grid>
+
+    </Border>
+
+</Window>

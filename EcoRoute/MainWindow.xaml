@@ -167,10 +167,7 @@
 
     </Window.Resources>
 
-    <!-- ====================================== -->
     <!-- LAYOUT UTAMA -->
-    <!-- ====================================== -->
-
     <Grid>
 
         <Grid.ColumnDefinitions>
@@ -178,10 +175,7 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- ====================================== -->
         <!-- SIDEBAR KIRI -->
-        <!-- ====================================== -->
-
         <Border Grid.Column="0"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource BorderLightBrush}"
@@ -200,66 +194,80 @@
                         Margin="0,0,0,20"
                         Click="LogoutButton_Click"/>
 
-                <!-- Menu atas -->
+                <!-- Menu atas tanpa tombol hamburger -->
                 <StackPanel Margin="0,16,0,0">
 
-                    <Button
-                        Style="{StaticResource IconButtonStyle}"
-                        Content="&#xE700;"
-                        FontSize="18"
-                        Margin="0,0,0,20"
-                        ToolTip="Menu"
-                        Command="{Binding ToggleMenuCommand}"/>
-
-                    <!-- Tombol halaman: menyala hijau sesuai halaman yang sedang tampil.
-                         Jelajah hanya menutup panel, isi card (rute, hasil) tidak di-reset. -->
+                    <!-- Jelajah tidak me-reset rute -->
                     <Button
                         Tag="&#xE707;"
                         Content="Jelajah"
                         ToolTip="Jelajahi peta"
                         Command="{Binding BukaJelajahCommand}">
+
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource RailButtonStyle}">
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource RailButtonStyle}">
+
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsJelajahAktif}" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                                    <DataTrigger Binding="{Binding IsJelajahAktif}"
+                                                 Value="True">
+                                        <Setter Property="Background"
+                                                Value="{StaticResource EcoGreenSoftBrush}"/>
+                                        <Setter Property="Foreground"
+                                                Value="{StaticResource EcoGreenBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
+
                             </Style>
                         </Button.Style>
                     </Button>
 
+                    <!-- Riwayat -->
                     <Button
                         Tag="&#xE81C;"
                         Content="Riwayat"
                         ToolTip="Riwayat perjalanan"
                         Command="{Binding ToggleMenuCommand}">
+
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource RailButtonStyle}">
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource RailButtonStyle}">
+
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMenuOpen}" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                                    <DataTrigger Binding="{Binding IsMenuOpen}"
+                                                 Value="True">
+                                        <Setter Property="Background"
+                                                Value="{StaticResource EcoGreenSoftBrush}"/>
+                                        <Setter Property="Foreground"
+                                                Value="{StaticResource EcoGreenBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
+
                             </Style>
                         </Button.Style>
                     </Button>
 
+                    <!-- Eco Score -->
                     <Button
                         Tag="&#x1F33F;"
                         Content="Eco Score"
                         ToolTip="Eco score kamu"
                         Command="{Binding ToggleEcoScoreCommand}">
+
                         <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource RailButtonStyle}">
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource RailButtonStyle}">
+
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsEcoScoreOpen}" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource EcoGreenSoftBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource EcoGreenBrush}"/>
+                                    <DataTrigger Binding="{Binding IsEcoScoreOpen}"
+                                                 Value="True">
+                                        <Setter Property="Background"
+                                                Value="{StaticResource EcoGreenSoftBrush}"/>
+                                        <Setter Property="Foreground"
+                                                Value="{StaticResource EcoGreenBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
+
                             </Style>
                         </Button.Style>
                     </Button>
@@ -270,16 +278,13 @@
 
         </Border>
 
-        <!-- ====================================== -->
         <!-- AREA PETA DAN KONTEN -->
-        <!-- ====================================== -->
-
         <Grid Grid.Column="1">
 
             <!-- Peta -->
             <components:MapView/>
 
-            <!-- Card berdasarkan state (disembunyikan, bukan di-reset, saat panel Riwayat / Eco Score dibuka) -->
+            <!-- Kartu Jelajah: state tetap tersimpan -->
             <Grid HorizontalAlignment="Left"
                   VerticalAlignment="Top"
                   Margin="16"
@@ -297,10 +302,7 @@
 
             </Grid>
 
-            <!-- ====================================== -->
             <!-- KATEGORI TEMPAT -->
-            <!-- ====================================== -->
-
             <ItemsControl
                 ItemsSource="{Binding DaftarKategori}"
                 HorizontalAlignment="Stretch"
@@ -349,120 +351,107 @@
 
             </ItemsControl>
 
-            <!-- ====================================== -->
-            <!-- PANEL RIWAYAT & ECO SCORE -->
-            <!-- Tampil di posisi card kiri (menggantikan card Jelajah), bukan menumpuk di atasnya.
-                 VerticalAlignment Stretch di wadah + Top di panel: tinggi panel mengikuti isi,
-                 tapi tidak melebihi jendela, jadi isinya bisa di-scroll. -->
-            <!-- ====================================== -->
-
+            <!-- PANEL RIWAYAT DAN ECO SCORE -->
+            <!-- Posisi panel mengikuti perbaikan AGA -->
             <Grid HorizontalAlignment="Left"
                   VerticalAlignment="Stretch"
                   Margin="16"
                   Width="400">
 
-            <Border
-                Style="{StaticResource FloatingCardStyle}"
-                VerticalAlignment="Top"
-                Padding="20"
-                Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVisibility}}">
+                <!-- Panel Riwayat -->
+                <Border
+                    Style="{StaticResource FloatingCardStyle}"
+                    VerticalAlignment="Top"
+                    Padding="20"
+                    Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVisibility}}">
 
-                <DockPanel>
+                    <DockPanel>
 
-                    <StackPanel DockPanel.Dock="Top">
+                        <StackPanel DockPanel.Dock="Top">
 
-                        <TextBlock
-                            Text="Riwayat Perjalanan"
-                            Style="{StaticResource TitleText}"/>
+                            <TextBlock
+                                Text="Riwayat Perjalanan"
+                                Style="{StaticResource TitleText}"/>
 
-                        <TextBlock
-                            Text="{Binding StatusRiwayat}"
-                            Style="{StaticResource CaptionText}"
-                            TextWrapping="Wrap"
-                            Margin="0,8,0,12"/>
+                            <TextBlock
+                                Text="{Binding StatusRiwayat}"
+                                Style="{StaticResource CaptionText}"
+                                TextWrapping="Wrap"
+                                Margin="0,8,0,12"/>
 
-                    </StackPanel>
+                        </StackPanel>
 
-                    <ScrollViewer
-                        VerticalScrollBarVisibility="Auto">
+                        <ScrollViewer
+                            VerticalScrollBarVisibility="Auto">
 
-                        <ItemsControl
-                            ItemsSource="{Binding RiwayatPerjalanan}">
+                            <ItemsControl
+                                ItemsSource="{Binding RiwayatPerjalanan}">
 
-                            <ItemsControl.ItemTemplate>
+                                <ItemsControl.ItemTemplate>
 
-                                <DataTemplate>
+                                    <DataTemplate>
 
-                                    <Border
-                                        BorderBrush="{StaticResource BorderLightBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="0,10">
+                                        <Border
+                                            BorderBrush="{StaticResource BorderLightBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="0,10">
 
-                                        <StackPanel>
+                                            <StackPanel>
 
-                                            <TextBlock
-                                                FontWeight="SemiBold"
-                                                Foreground="{StaticResource TextPrimaryBrush}"
-                                                TextTrimming="CharacterEllipsis">
+                                                <TextBlock
+                                                    FontWeight="SemiBold"
+                                                    Foreground="{StaticResource TextPrimaryBrush}"
+                                                    TextTrimming="CharacterEllipsis">
 
-                                                <Run Text="{Binding NamaAsal, Mode=OneWay}"/>
+                                                    <Run Text="{Binding NamaAsal, Mode=OneWay}"/>
+                                                    <Run Text="→"/>
+                                                    <Run Text="{Binding NamaTujuan, Mode=OneWay}"/>
 
-                                                <Run Text="→"/>
+                                                </TextBlock>
 
-                                                <Run Text="{Binding NamaTujuan, Mode=OneWay}"/>
+                                                <TextBlock
+                                                    Style="{StaticResource CaptionText}"
+                                                    Margin="0,2,0,0">
 
-                                            </TextBlock>
+                                                    <Run Text="{Binding ModaDipilih, Mode=OneWay}"/>
+                                                    <Run Text="·"/>
+                                                    <Run Text="{Binding JarakKm, StringFormat={}{0:0.0} km, Mode=OneWay}"/>
+                                                    <Run Text="·"/>
+                                                    <Run
+                                                        Text="{Binding TotalEmisiKg, StringFormat={}{0:0.00} kg CO₂, Mode=OneWay}"
+                                                        Foreground="{StaticResource EcoGreenBrush}"/>
 
-                                            <TextBlock
-                                                Style="{StaticResource CaptionText}"
-                                                Margin="0,2,0,0">
+                                                </TextBlock>
 
-                                                <Run Text="{Binding ModaDipilih, Mode=OneWay}"/>
+                                                <TextBlock
+                                                    Text="{Binding Tanggal, StringFormat={}{0:dd MMM yyyy, HH:mm}}"
+                                                    Style="{StaticResource CaptionText}"
+                                                    Foreground="{StaticResource TextMutedBrush}"/>
 
-                                                <Run Text="·"/>
+                                            </StackPanel>
 
-                                                <Run Text="{Binding JarakKm, StringFormat={}{0:0.0} km, Mode=OneWay}"/>
+                                        </Border>
 
-                                                <Run Text="·"/>
+                                    </DataTemplate>
 
-                                                <Run
-                                                    Text="{Binding TotalEmisiKg, StringFormat={}{0:0.00} kg CO₂, Mode=OneWay}"
-                                                    Foreground="{StaticResource EcoGreenBrush}"/>
+                                </ItemsControl.ItemTemplate>
 
-                                            </TextBlock>
+                            </ItemsControl>
 
-                                            <TextBlock
-                                                Text="{Binding Tanggal, StringFormat={}{0:dd MMM yyyy, HH:mm}}"
-                                                Style="{StaticResource CaptionText}"
-                                                Foreground="{StaticResource TextMutedBrush}"/>
+                        </ScrollViewer>
 
-                                        </StackPanel>
+                    </DockPanel>
 
-                                    </Border>
+                </Border>
 
-                                </DataTemplate>
-
-                            </ItemsControl.ItemTemplate>
-
-                        </ItemsControl>
-
-                    </ScrollViewer>
-
-                </DockPanel>
-
-            </Border>
-
-            <!-- Panel Eco Score (Views/Components/EcoScoreView.xaml) -->
-            <components:EcoScoreView
-                VerticalAlignment="Top"
-                Visibility="{Binding IsEcoScoreOpen, Converter={StaticResource BoolToVisibility}}"/>
+                <!-- Panel Eco Score -->
+                <components:EcoScoreView
+                    VerticalAlignment="Top"
+                    Visibility="{Binding IsEcoScoreOpen, Converter={StaticResource BoolToVisibility}}"/>
 
             </Grid>
 
-            <!-- ====================================== -->
             <!-- NOTIFIKASI -->
-            <!-- ====================================== -->
-
             <Border
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
