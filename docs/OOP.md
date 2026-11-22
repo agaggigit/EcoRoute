@@ -152,7 +152,12 @@ Jalur Bus mengikuti trayek Trans Jogja asli kalau ada **satu trayek yang langsun
    - jalur busnya lebih panjang dari 3 × jarak garis lurus antar halte + 1 km. Pada trayek yang berputar, halte "di belakang" baru tercapai setelah satu putaran penuh, dan naik bus seperti itu tidak masuk akal.
 4. Jarak jalan kaki = jarak garis lurus × 1.3, untuk belokan dan menyeberang jalan.
 
-**Emisi dan waktu.** Hanya bagian naik bus yang beremisi. Durasi bagian bus dihitung dari kecepatan rata-rata rute mobil untuk perjalanan yang sama, lalu dipakai rumus bus di atas (× 1.3 untuk halte, × kemacetan, + 10 menit menunggu), ditambah waktu jalan kaki. Kemacetan per segmen dari TomTom diukur di rute jalan raya, jadi untuk bagian bus dipakai rata-rata emisi per km-nya.
+**Emisi dan waktu.** Hanya bagian naik bus yang beremisi. Durasi bagian bus dihitung dari kecepatan rata-rata rute mobil untuk perjalanan yang sama, lalu dipakai rumus bus di atas (× 1.3 untuk halte, × kemacetan, + 10 menit menunggu), ditambah waktu jalan kaki.
+
+**Kemacetan di jalur bus.** Kemacetan diukur langsung di sepanjang jalur trayek (`MainViewModel.LaluLintasBus`), bukan di rute mobil, karena jalur bus sering lewat jalan lain. Caranya sama dengan rute jalan raya (`TrafficService.AmbilKondisiAsync`, termasuk ruas tanpa data live dan sampling lebih rapat di jalan utama), hanya saja jaraknya jarak naik bus. Kedua pengukuran diambil bersamaan saat Hitung Emisi, jadi tidak menambah waktu tunggu, tetapi memakai sampai 20 request TomTom tambahan kalau ada trayek langsung.
+- Emisi bagian bus dihitung per segmen jalur bus (`KondisiLaluLintas.HitungEmisiBus`). Kalau jalur bus tidak mendapat data live, dipakai rata-rata emisi per km rute jalan raya seperti sebelumnya.
+- Waktu bagian bus memakai pengali kemacetan jalur bus.
+- Di peta, jalur bus diwarnai sesuai kemacetan di atas pita biru tipis penanda trayek. Card "Kondisi lalu lintas" menampilkan ringkasan jalur bus saat moda Bus dipilih, dan ringkasan rute jalan raya untuk moda lain.
 
 **Kalau tidak ada trayek langsung**, misalnya halte terlalu jauh atau harus pindah bus, Bus kembali memakai perkiraan jalan raya seperti sebelumnya. Card hasil menuliskan keterangan itu dengan jelas.
 
