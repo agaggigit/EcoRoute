@@ -61,7 +61,7 @@
 
             <!-- GARIS PEMISAH -->
             <Border Height="1"
-                    Background="#E9EEF5"
+                    Background="{StaticResource BorderLightBrush}"
                     Margin="0,18,0,18"/>
 
             <!-- INFORMASI LOKASI -->
@@ -75,7 +75,7 @@
                 <Border Grid.Column="0"
                         Width="36"
                         Height="36"
-                        Background="#EDF4FF"
+                        Background="{StaticResource PrimarySoftBrush}"
                         CornerRadius="10"
                         VerticalAlignment="Top">
 
