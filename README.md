@@ -1,6 +1,10 @@
+﻿<p align="center"><img src="EcoRoute/Assets/logo-256.png" width="96" alt="Logo EcoRoute"></p>
+
 # EcoRoute
 
-EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandingkan jejak karbon perjalanan. Pengguna masuk dengan akun, lalu memilih titik awal, tujuan, dan moda transportasi. Aplikasi mengambil rute asli dari peta, membaca kondisi lalu lintas tiap ruas secara otomatis, menghitung emisi CO₂ setiap moda, dan menyimpan perjalanan ke riwayat milik akun tersebut.
+> *Jalan hemat, bumi sehat.*
+
+EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandingkan jejak karbon perjalanan. Pengguna masuk dengan akun, lalu memilih titik awal, tujuan, dan moda transportasi. Aplikasi mengambil rute asli dari peta, membaca kondisi lalu lintas tiap ruas secara otomatis, menghitung emisi CO₂ setiap moda, lalu menyimpan perjalanan yang dipakai ke riwayat milik akun tersebut.
 
 **Tema:** Climate Action, kalkulator dan pelacak jejak karbon perjalanan.
 
@@ -9,12 +13,13 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 - **Register dan Login**: akun disimpan di database lokal, password disimpan sebagai hash PBKDF2-SHA256 (bukan teks asli).
 - **Riwayat dan Eco Score per akun**: tiap akun hanya melihat perjalanannya sendiri.
 - **Peta interaktif** (Leaflet + OpenStreetMap) dengan pin tempat populer Yogyakarta dan filter kategori.
-- **Pencarian tempat** lewat Nominatim (OpenStreetMap).
+- **Pencarian tempat** lewat Nominatim (OpenStreetMap), dengan saran lokasi saat mengetik.
+- **Pilih lokasi dari peta**: klik peta di mana saja. Titik yang diklik diubah jadi nama tempat atau jalan terdekat, dan dibulatkan ke tempat populer kalau jaraknya dekat.
 - **Rute asli per moda** (jarak, durasi, dan garis rute) dari OSRM: jalan raya untuk Mobil dan Motor, serta jalur khusus untuk Sepeda dan Jalan Kaki. Titik awal bisa diketik atau ketik koordinat langsung (contoh -7.7829, 110.3671).
 - **Trayek Trans Jogja asli untuk Bus**: aplikasi mencari satu trayek yang langsung menghubungkan titik awal dan tujuan, lalu menampilkan halte naik, halte turun, jalur bus, dan jalan kaki ke serta dari halte. Data 20 trayek diambil dari OpenStreetMap (detail di [docs/OOP.md](docs/OOP.md#trayek-trans-jogja)).
-- **Perbandingan emisi 5 moda**: Mobil, Motor, Bus, Sepeda, Jalan Kaki, masing-masing dengan jarak rutenya sendiri, beserta saran moda yang lebih hemat.
+- **Perbandingan emisi 5 moda**: Mobil, Motor, Bus, Sepeda, Jalan Kaki, masing-masing dengan jarak rutenya sendiri, beserta **rekomendasi** moda dengan emisi paling rendah yang waktu tempuhnya masih wajar (bukan selalu jalan kaki atau sepeda).
 - **Kemacetan live per ruas**: rute dipecah menjadi 3–10 segmen, kecepatan tiap segmen diambil dari TomTom Traffic Flow, lalu emisi kendaraan bermotor dihitung per segmen (Lancar, Sedang, Padat, Macet). Tanpa API key atau saat TomTom gagal, kemacetan ditebak dari jam dan aplikasi tetap berjalan.
-- **Riwayat perjalanan** tersimpan di SQLite lokal dan bisa dilihat dari menu *Riwayat*.
+- **Riwayat perjalanan** tersimpan di SQLite lokal. Perjalanan dicatat lewat tombol *Pakai rute ini*, dan bisa diklik dari menu *Riwayat* untuk menghitung ulang rute yang sama dengan kondisi lalu lintas saat ini.
 - **Eco Score**: total CO₂ yang dihemat dibanding naik mobil, poin, level (Bibit → Tunas → Pohon → Hutan), dan perbandingan "setara X pohon menyerap CO₂ selama setahun". CO₂ yang dihemat dihitung dalam kondisi lalu lintas lancar, jadi skor tidak naik-turun karena macet.
 - **Penanganan error** yang ramah pengguna untuk koneksi internet terputus, lokasi tidak ditemukan, atau database gagal dimuat.
 - **Logout** dengan dialog konfirmasi. Riwayat tidak hilang saat logout.
@@ -68,7 +73,7 @@ EcoRoute memakai SQLite, jadi tidak ada yang perlu dipasang atau dikonfigurasi. 
 %LOCALAPPDATA%\EcoRoute\ecoroute.db
 ```
 
-Data akun dan riwayat tersimpan di komputer yang dipakai dan tidak tersinkronisasi antarperangkat. Untuk mengosongkan data, tutup aplikasi lalu hapus file `ecoroute.db`; file akan dibuat ulang saat aplikasi dibuka lagi.
+Data akun dan riwayat tersimpan di komputer yang dipakai dan tidak tersinkronisasi antarperangkat. Untuk mengosongkan data, tutup aplikasi lalu hapus file `ecoroute.db`; file akan dibuat ulang saat aplikasi dibuka lagi. Untuk mencoba atau demo tanpa mengubah riwayat asli, atur environment variable `ECOROUTE_DB_PATH` ke lokasi file database lain (contoh `D:\demo\ecoroute.db`).
 
 ### 2. Atur API key TomTom (opsional)
 
@@ -99,19 +104,21 @@ Bisa juga dengan membuka `EcoRoute.slnx` di Visual Studio 2026 (mendukung .NET 1
 
 ## Panduan Penggunaan
 
-0. **Register / Login.** Pada halaman awal, klik *Belum punya akun? Register*, isi nama, email, dan password (minimal 8 karakter), lalu klik *Register*. Setelah berhasil kamu langsung masuk ke dashboard. Untuk pemakaian berikutnya, cukup Login dengan email dan password yang sama.
-1. **Cari tujuan.** Ketik nama tempat di kolom pencarian lalu tekan Enter, atau klik pin/chip tempat populer. Detail lokasi tampil di card kiri.
-2. **Buat rute.** Tekan tombol *Rute*. Tempat yang dipilih otomatis menjadi tujuan.
-3. **Isi titik awal.** Ketik nama tempat lalu tekan Enter untuk melihat penandanya di peta, ketik koordinat (contoh `-7.7829, 110.3671`), atau klik lokasi di peta (kursor berubah menjadi tanda tambah). Tombol tukar menukar titik awal dan tujuan.
+0. **Register / Login.** Pada halaman awal, klik *Belum punya akun? Daftar*, isi nama, email, dan password (minimal 8 karakter), lalu klik *Daftar*. Setelah berhasil kamu langsung masuk ke dashboard. Untuk pemakaian berikutnya, cukup *Masuk* dengan email dan password yang sama.
+1. **Cari tujuan.** Ketik nama tempat di kolom pencarian lalu tekan Enter (atau pilih dari saran), klik pin/chip tempat populer, atau klik langsung di peta. Detail lokasi tampil di card kiri. Beranda juga menampilkan strip Eco Score dan tiga perjalanan terakhir yang bisa diklik untuk langsung dihitung ulang.
+2. **Buat rute.** Tekan *Rute ke sini*. Tempat yang dipilih otomatis menjadi tujuan.
+3. **Isi titik awal.** Kolom yang sedang aktif diberi garis hijau, dan klik peta mengisi kolom tersebut. Setelah titik awal terisi, klik berikutnya otomatis mengisi tujuan. Bisa juga mengetik nama tempat lalu Enter (penandanya muncul di peta dulu sebelum menghitung), atau mengetik koordinat (contoh `-7.7829, 110.3671`). Tombol tukar menukar titik awal dan tujuan.
 4. **Pilih moda.** Kondisi lalu lintas tidak perlu dipilih: saat rute dihitung, kemacetan tiap ruas diambil live dari TomTom (kalau API key diatur). Kalau TomTom tidak bisa dihubungi, muncul notif singkat dan kemacetan ditebak dari jam.
 5. **Tekan *Hitung Emisi*.** Garis rute tampil di peta, dan card menampilkan:
-   - total emisi CO₂, jarak, dan estimasi waktu tempuh,
-   - perbandingan emisi kelima moda (moda paling hemat ditandai),
-   - saran moda alternatif dan tambahan emisi akibat kemacetan.
-6. Ganti moda untuk menghitung ulang secara langsung tanpa memanggil ulang API. Garis rute di peta ikut berganti, misalnya ke jalur sepeda saat memilih Sepeda. Perjalanan disimpan otomatis ke riwayat satu kali setiap *Hitung Emisi* ditekan, sesuai moda yang sedang terpilih saat itu. Mengganti moda sesudahnya tidak menambah entri riwayat.
-7. Buka menu **Riwayat** di rail kiri untuk melihat perjalanan yang tersimpan beserta total emisinya. Riwayat hanya menampilkan perjalanan milik akun yang sedang login.
-8. Buka menu **Eco Score** untuk melihat level (Bibit → Tunas → Pohon → Hutan), poin, CO₂ yang dihemat dibanding naik mobil, dan setara berapa pohon. 1 kg CO₂ yang dihemat bernilai 10 poin.
-9. Klik **Logout** di bagian bawah sidebar, lalu pilih *Ya, keluar* untuk kembali ke halaman Login.
+   - waktu tempuh (warnanya mengikuti kondisi lalu lintas: hijau, kuning, oranye, merah), jarak, dan emisi CO₂,
+   - perbandingan waktu dan emisi kelima moda, dengan badge *Rekomendasi*,
+   - saran singkat. Penjelasan lengkapnya muncul saat ikon ⓘ di-hover.
+6. **Ganti moda atau lokasi.** Klik ikon moda atau baris moda di daftar perbandingan untuk menghitung ulang secara langsung tanpa memanggil ulang API. Mengganti titik awal atau tujuan (klik peta, Enter, atau saran) langsung menghitung ulang rutenya.
+7. **Tekan *Pakai rute ini*** untuk mencatat perjalanan ke Riwayat dan Eco Score. Hitung Emisi saja tidak dicatat, jadi mencoba-coba rute tidak menambah poin.
+8. Buka menu **Riwayat** di rail kiri untuk melihat perjalanan yang tercatat. Klik salah satu perjalanan untuk menghitung ulang rute yang sama dengan kondisi lalu lintas saat ini. Riwayat hanya menampilkan perjalanan milik akun yang sedang login.
+9. Buka menu **Eco Score** untuk melihat level (Bibit → Tunas → Pohon → Hutan), poin, CO₂ yang dihemat dibanding naik mobil, dan setara berapa pohon. 1 kg CO₂ yang dihemat bernilai 10 poin. Cara hitungnya ada di tooltip ikon ⓘ.
+10. Ikon tumpukan di kanan atas peta membuka **keterangan peta**: warna lalu lintas, penanda rute, dan warna kategori tempat.
+11. Klik **Logout** di bagian bawah sidebar, lalu pilih *Ya, keluar* untuk kembali ke halaman Login.
 
 ## Build `.exe`
 
@@ -131,7 +138,7 @@ Hasilnya ada di `EcoRoute/bin/publish/win-x64/`: `EcoRoute.exe` (±70 MB) dan fo
 dotnet test EcoRoute.slnx
 ```
 
-Unit test (59 metode uji) mencakup rumus emisi per moda dan penalti kemacetan, tebakan kondisi lalu lintas, pembacaan data TomTom dan pembagian segmen rute, estimasi waktu tempuh, perhitungan Eco Score, pratinjau titik awal, dan perpindahan panel. 
+Unit test (127 metode uji) mencakup rumus emisi per moda dan penalti kemacetan, tebakan kondisi lalu lintas, pembacaan data TomTom dan pembagian segmen rute, estimasi waktu tempuh, perhitungan Eco Score, pratinjau titik awal dan tujuan, klik peta dan nama tempat dari titik, rekomendasi moda, saran lokasi, pencatatan perjalanan, dan perpindahan panel. 
 
 Alur Register dan Login langsung ke SQLite bisa diuji dengan:
 
