@@ -238,9 +238,37 @@ public partial class MainViewModel : BaseViewModel
         get => _notifikasi;
         private set
         {
-            if (SetProperty(ref _notifikasi, value))
-                OnPropertyChanged(nameof(AdaNotifikasi));
+            if (!SetProperty(ref _notifikasi, value))
+                return;
+
+            // Notifikasi biasa = peringatan (merah); hanya TampilkanSuksesAsync yang hijau
+            if (!_aturNotifikasiSukses)
+                IsNotifikasiSukses = false;
+
+            OnPropertyChanged(nameof(AdaNotifikasi));
         }
+    }
+
+    private bool _aturNotifikasiSukses;
+    private bool _isNotifikasiSukses;
+
+    public bool IsNotifikasiSukses
+    {
+        get => _isNotifikasiSukses;
+        private set => SetProperty(ref _isNotifikasiSukses, value);
+    }
+
+    // Notif hijau singkat (misalnya perjalanan berhasil dicatat), hilang sendiri setelah beberapa detik
+    private async Task TampilkanSuksesAsync(string pesan)
+    {
+        _aturNotifikasiSukses = true;
+        IsNotifikasiSukses = true;
+        Notifikasi = pesan;
+        _aturNotifikasiSukses = false;
+
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        if (Notifikasi == pesan)
+            Notifikasi = string.Empty;
     }
 
     public bool AdaNotifikasi =>
@@ -884,6 +912,14 @@ public partial class MainViewModel : BaseViewModel
                  CurrentState != AppState.StateL_Loading &&
                  !string.IsNullOrWhiteSpace(TitikTujuan));
 
+        CatatPerjalananCommand = new RelayCommand(
+            ExecuteCatatPerjalanan,
+            _ => CurrentState == AppState.StateD_RouteResult && !IsPerjalananTercatat);
+
+        UlangiPerjalananCommand = new RelayCommand(
+            ExecuteUlangiPerjalanan,
+            p => p is TripHistory { AdaKoordinat: true } && CurrentState != AppState.StateL_Loading);
+
         PilihModaCommand = new RelayCommand(p =>
         {
             if (p is string nama)
@@ -906,6 +942,13 @@ public partial class MainViewModel : BaseViewModel
                     break;
                 case nameof(EstimasiWaktuMenit):
                     OnPropertyChanged(nameof(WaktuTampil));
+                    break;
+                case nameof(RiwayatPerjalanan):
+                    OnPropertyChanged(nameof(PerjalananTerakhir));
+                    OnPropertyChanged(nameof(AdaPerjalananTerakhir));
+                    break;
+                case nameof(EcoScore):
+                    OnPropertyChanged(nameof(TahapanLevel));
                     break;
             }
         };
@@ -974,13 +1017,13 @@ public partial class MainViewModel : BaseViewModel
         }
     }
 
-    private async Task SimpanPerjalananAsync(RouteResult rute)
+    private async Task<bool> SimpanPerjalananAsync(RouteResult rute)
     {
         if (_databaseService is null)
         {
             Notifikasi =
                 "Database belum siap. Perjalanan tidak tersimpan.";
-            return;
+            return false;
         }
 
         try
@@ -999,13 +1042,103 @@ public partial class MainViewModel : BaseViewModel
                 EmisiKarbonKg);
 
             await MuatRiwayatAsync();
+            return true;
         }
         catch (Exception ex)
         {
             Notifikasi =
                 $"Hasil tidak tersimpan ke riwayat: {ex.Message}";
+            return false;
         }
     }
+
+    // ==========================================
+    // CATAT PERJALANAN ("Pakai rute ini")
+    // ==========================================
+    // Hitung Emisi hanya mencari rute. Perjalanan baru masuk Riwayat dan Eco Score saat user
+    // menekan "Pakai rute ini", supaya mencoba-coba rute tidak ikut dihitung sebagai poin.
+    private bool _isPerjalananTercatat;
+
+    public bool IsPerjalananTercatat
+    {
+        get => _isPerjalananTercatat;
+        private set
+        {
+            if (SetProperty(ref _isPerjalananTercatat, value))
+                CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    public ICommand CatatPerjalananCommand { get; }
+
+    private async void ExecuteCatatPerjalanan(object? parameter)
+    {
+        if (HasilRute is null || IsPerjalananTercatat)
+            return;
+
+        int poinSebelum = EcoScore.Poin;
+        IsPerjalananTercatat = true;
+
+        if (!await SimpanPerjalananAsync(HasilRute))
+        {
+            IsPerjalananTercatat = false;
+            return;
+        }
+
+        int tambahan = EcoScore.Poin - poinSebelum;
+        _ = TampilkanSuksesAsync(tambahan > 0
+            ? $"Perjalanan tercatat · +{tambahan} poin Eco Score"
+            : "Perjalanan tercatat di riwayat");
+    }
+
+    // ==========================================
+    // ULANGI PERJALANAN DARI RIWAYAT
+    // ==========================================
+    // Rute yang sama (koordinat asal & tujuan + moda) dihitung ulang dengan kondisi lalu lintas saat ini
+    public ICommand UlangiPerjalananCommand { get; }
+
+    public IReadOnlyList<TripHistory> PerjalananTerakhir =>
+        RiwayatPerjalanan.Where(t => t.AdaKoordinat).Take(3).ToList();
+
+    public bool AdaPerjalananTerakhir => PerjalananTerakhir.Count > 0;
+
+    private void ExecuteUlangiPerjalanan(object? parameter)
+    {
+        if (parameter is not TripHistory trip || !trip.AdaKoordinat)
+            return;
+
+        TutupPanel();
+        SearchQuery = string.Empty;
+        SelectedPlace = null;
+
+        // State diubah dulu supaya mengganti moda tidak memicu hitung ulang hasil lama
+        CurrentState = AppState.StateC_InputRoute;
+        if (DaftarModa.Any(m => m.Nama == trip.ModaDipilih))
+            SelectedModa = trip.ModaDipilih;
+
+        var asal = new Place(trip.NamaAsal, "Dari riwayat", "Riwayat", trip.LatAsal, trip.LngAsal);
+        _teksPratinjauAsal = asal.Nama;
+        TitikAsal = asal.Nama;
+        PratinjauAsal = asal;
+
+        TitikTujuan = trip.NamaTujuan;
+        TujuanTerpilih = new Place(trip.NamaTujuan, "Dari riwayat", "Riwayat", trip.LatTujuan, trip.LngTujuan);
+        KolomAktif = KolomRute.Asal;
+
+        if (HitungEmisiCommand.CanExecute(null))
+            HitungEmisiCommand.Execute(null);
+    }
+
+    // Tahapan level Eco Score (Bibit -> Tunas -> Pohon -> Hutan) untuk panel Eco Score
+    public IReadOnlyList<TahapLevel> TahapanLevel =>
+        Enum.GetValues<LevelEco>()
+            .Select(level => new TahapLevel(
+                (EcoScoreRingkasan.Kosong with { Level = level }).IkonLevel,
+                level.ToString(),
+                EcoScoreCalculator.PoinMinimal(level),
+                level <= EcoScore.Level,
+                level == EcoScore.Level))
+            .ToList();
 
     private async void ExecuteToggleMenu(object? parameter)
     {
@@ -1184,7 +1317,8 @@ public partial class MainViewModel : BaseViewModel
 
         try
         {
-            if (string.Equals(
+            if ((PratinjauAsal is null || TujuanTerpilih is null) &&
+                string.Equals(
                 TitikAsal.Trim(),
                 TitikTujuan.Trim(),
                 StringComparison.OrdinalIgnoreCase))
@@ -1236,9 +1370,6 @@ public partial class MainViewModel : BaseViewModel
 
             CurrentState =
                 AppState.StateD_RouteResult;
-
-            if (HasilRute is not null)
-                await SimpanPerjalananAsync(HasilRute);
         }
         catch (RoutingException ex)
         {
@@ -1401,6 +1532,8 @@ public partial class MainViewModel : BaseViewModel
 
     private void HitungUlangEmisi()
     {
+        IsPerjalananTercatat = false;
+
         // Tiap moda memakai jarak dan rutenya sendiri; jalan raya dihitung per segmen sesuai kemacetannya
         var perModa = DaftarModa
             .Select(m =>

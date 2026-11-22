@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -263,18 +263,26 @@ public class SqliteDatabaseService
         await connection.OpenAsync();
 
         await using var command = connection.CreateCommand();
+        // Langsung dari tabel (bukan view v_riwayat_perjalanan) supaya koordinat ikut terbaca
+        // tanpa perlu mengubah view di database yang sudah ada
         command.CommandText = """
             SELECT
-                trip_id,
-                tanggal,
-                nama_asal,
-                nama_tujuan,
-                jarak_km,
-                moda_dipilih,
-                total_emisi_kg
-            FROM v_riwayat_perjalanan
-            WHERE user_id = @user_id
-            ORDER BY tanggal DESC, trip_id DESC;
+                t.trip_id,
+                t.tanggal,
+                r.nama_asal,
+                r.nama_tujuan,
+                r.jarak,
+                t.moda_dipilih,
+                t.total_emisi_kg,
+                r.titik_awal_lat,
+                r.titik_awal_lng,
+                r.titik_akhir_lat,
+                r.titik_akhir_lng,
+                r.estimasi_waktu
+            FROM trip_history t
+            JOIN route r ON r.route_id = t.route_id
+            WHERE t.user_id = @user_id
+            ORDER BY t.tanggal DESC, t.trip_id DESC;
             """;
 
         command.Parameters.AddWithValue("@user_id", userId);
@@ -302,7 +310,12 @@ public class SqliteDatabaseService
                     ? "" : reader.GetString(3),
                 JarakKm = reader.GetDouble(4),
                 ModaDipilih = reader.GetString(5),
-                TotalEmisiKg = reader.GetDouble(6)
+                TotalEmisiKg = reader.GetDouble(6),
+                LatAsal = reader.GetDouble(7),
+                LngAsal = reader.GetDouble(8),
+                LatTujuan = reader.GetDouble(9),
+                LngTujuan = reader.GetDouble(10),
+                EstimasiWaktuMenit = reader.GetInt32(11)
             };
 
             history.Add(trip);
