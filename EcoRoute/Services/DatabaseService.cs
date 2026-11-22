@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using EcoRoute.Models;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace EcoRoute.Services;
 
@@ -158,13 +159,21 @@ public class DatabaseService
         string modaDipilih,
         double totalEmisiKg)
     {
+        // Validasi sebelum membuka koneksi database.
+        if (string.IsNullOrWhiteSpace(modaDipilih))
+        {
+            throw new ArgumentException(
+                "Moda transportasi belum dipilih atau bernilai kosong.",
+                nameof(modaDipilih)
+            );
+        }
+
         await using var connection =
             new NpgsqlConnection(_connectionString);
 
         await connection.OpenAsync();
 
-        // Transaction memastikan kedua INSERT berhasil
-        // atau keduanya dibatalkan.
+        // Kedua INSERT harus berhasil bersama-sama.
         await using var transaction =
             await connection.BeginTransactionAsync();
 
@@ -270,8 +279,12 @@ public class DatabaseService
             tripCommand.Parameters.AddWithValue(
                 "route_id", routeId);
 
-            tripCommand.Parameters.AddWithValue(
-                "moda", modaDipilih);
+            // PERBAIKAN:
+            // Tetapkan tipe PostgreSQL secara eksplisit.
+            tripCommand.Parameters.Add(
+                "moda",
+                NpgsqlDbType.Text
+            ).Value = modaDipilih;
 
             tripCommand.Parameters.AddWithValue(
                 "emisi", Convert.ToDecimal(totalEmisiKg));
@@ -279,15 +292,14 @@ public class DatabaseService
             int tripId = Convert.ToInt32(
                 await tripCommand.ExecuteScalarAsync());
 
-            // Kedua data berhasil disimpan.
+            // Simpan kedua INSERT secara permanen.
             await transaction.CommitAsync();
 
             return tripId;
         }
         catch
         {
-            // Jika salah satu INSERT gagal,
-            // semua perubahan dibatalkan.
+            // Batalkan kedua INSERT jika ada error.
             await transaction.RollbackAsync();
             throw;
         }
