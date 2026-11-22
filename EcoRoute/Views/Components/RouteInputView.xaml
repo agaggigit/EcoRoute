@@ -1,4 +1,4 @@
-<!--
+﻿<!--
     State C, L, E - Input rute + loading + error. Pemilik: Akio.
     Binding: DaftarModa (Nama, Ikon), SelectedModa, RingkasanLaluLintas, KeteranganBus,
              TitikAsal, TitikTujuan, ErrorMessage, CurrentState,
@@ -40,6 +40,15 @@
                     <Setter Property="Background" Value="{StaticResource PrimarySoftBrush}"/>
                     <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
                 </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- Kolom titik awal: garis hijau saat aktif (klik peta mengisi kolom ini) -->
+        <Style x:Key="KolomRuteStyle" TargetType="TextBox" BasedOn="{StaticResource InputBoxStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsAsalAktif}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                    <Setter Property="Background" Value="White"/>
+                </DataTrigger>
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
@@ -104,24 +113,49 @@
                 <Ellipse Grid.Row="2" Width="10" Height="10" Fill="{StaticResource DangerBrush}"
                          HorizontalAlignment="Left" VerticalAlignment="Center"/>
 
-                <TextBox Grid.Column="1" Style="{StaticResource InputBoxStyle}"
-                         Tag="Ketik titik awal lalu Enter, atau klik peta..."
+                <TextBox x:Name="KolomAsal" Grid.Column="1" Style="{StaticResource KolomRuteStyle}"
+                         Tag="Titik awal: ketik atau klik peta"
                          components:SaranLokasiBehavior.Sumber="{Binding SaranAsal}"
+                         GotKeyboardFocus="KolomAsal_GotKeyboardFocus"
                          Text="{Binding TitikAsal, UpdateSourceTrigger=PropertyChanged}">
                     <!-- Enter: cari titik awal dan tandai di peta sebelum Hitung Emisi -->
                     <TextBox.InputBindings>
                         <KeyBinding Key="Enter" Command="{Binding PratinjauAsalCommand}"/>
                     </TextBox.InputBindings>
                 </TextBox>
-                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource InputBoxStyle}"
-                         Tag="Pilih tujuan..."
+                <TextBox x:Name="KolomTujuan" Grid.Row="2" Grid.Column="1"
+                         Tag="Tujuan: ketik atau klik peta"
                          components:SaranLokasiBehavior.Sumber="{Binding SaranTujuan}"
-                         Text="{Binding TitikTujuan, UpdateSourceTrigger=PropertyChanged}"/>
+                         GotKeyboardFocus="KolomTujuan_GotKeyboardFocus"
+                         Text="{Binding TitikTujuan, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox" BasedOn="{StaticResource InputBoxStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsTujuanAktif}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                    <Setter Property="Background" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                    <!-- Enter: cari tujuan dan tandai di peta sebelum Hitung Emisi -->
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding PratinjauTujuanCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
 
                 <Button Grid.Column="2" Grid.RowSpan="3" Style="{StaticResource IconButtonStyle}" Content="&#xE8CB;"
                         ToolTip="Tukar titik awal dan tujuan" Command="{Binding TukarCommand}"
                         VerticalAlignment="Center" Margin="4,0,0,0"/>
             </Grid>
+
+            <!-- Petunjuk klik peta (State C): kolom mana yang akan diisi -->
+            <StackPanel Orientation="Horizontal" Margin="24,10,0,0"
+                        Visibility="{Binding CurrentState, Converter={StaticResource StateToVisibility}, ConverterParameter='StateC_InputRoute'}">
+                <TextBlock Text="&#xE707;" FontFamily="{StaticResource IconFont}" FontSize="12"
+                           Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Text="{Binding PetunjukKlikPeta}" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
+            </StackPanel>
 
             <!-- Kondisi lalu lintas rute (State D): otomatis dari TomTom per segmen, bukan pilihan user -->
             <StackPanel Margin="4,12,0,0"

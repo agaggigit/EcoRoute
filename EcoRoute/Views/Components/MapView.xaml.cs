@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.ComponentModel;
 using System.Globalization;
@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using EcoRoute.ViewModels;
 using Microsoft.Web.WebView2.Core;
 using EcoRoute.Models;
+using EcoRoute.Services;
 
 namespace EcoRoute.Views.Components;
 
@@ -186,11 +187,12 @@ public partial class MapView : UserControl
                 return;
             }
 
+            // Klik peta: State A/B -> kartu tempat, State C/D/E -> mengisi kolom aktif (lihat MainViewModel)
             if (messageType == "mapClicked")
             {
                 if (_viewModel == null ||
-                    _viewModel.CurrentState !=
-                        AppState.StateC_InputRoute)
+                    _viewModel.CurrentState ==
+                        AppState.StateL_Loading)
                 {
                     return;
                 }
@@ -204,8 +206,8 @@ public partial class MapView : UserControl
                 ).GetDouble();
 
                 // Penanda sudah digambar map.html di titik klik, jadi peta tidak perlu digeser lagi
-                _asalDariKlikPeta = true;
-                _viewModel.PilihAsalDariPeta(lat, lng);
+                _klikTerakhir = (lat, lng);
+                await _viewModel.PilihTitikDariPetaAsync(lat, lng);
             }
         }
         catch (Exception ex)
@@ -220,8 +222,8 @@ public partial class MapView : UserControl
         object? sender,
         PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(
-                MainViewModel.SelectedPlace))
+        if (e.PropertyName is nameof(MainViewModel.SelectedPlace) or
+                              nameof(MainViewModel.TujuanTerpilih))
         {
             await UpdateMarkerAsync();
         }
@@ -230,6 +232,14 @@ public partial class MapView : UserControl
                 MainViewModel.CurrentState))
         {
             await UpdateMapStateAsync();
+            await UpdateMarkerAsync();
+            await UpdateOriginPreviewAsync();
+        }
+
+        if (e.PropertyName == nameof(
+                MainViewModel.KolomAktif))
+        {
+            await UpdateClickTargetAsync();
         }
 
         if (e.PropertyName == nameof(
@@ -260,19 +270,20 @@ public partial class MapView : UserControl
         await UpdateOriginPreviewAsync();
     }
 
-    // true kalau pratinjau berikutnya berasal dari klik peta (penanda sudah ada, peta tidak digeser)
-    private bool _asalDariKlikPeta;
+    // Titik terakhir yang diklik di peta. Penanda di dekat titik ini sudah terlihat, jadi peta tidak perlu digeser.
+    private (double Lat, double Lng)? _klikTerakhir;
 
-    // Penanda "Titik Asal" saat input rute (State C), sebelum Hitung Emisi
+    private bool DekatKlikTerakhir(Place place) =>
+        _klikTerakhir is { } klik &&
+        TransJogjaService.JarakKm(klik.Lat, klik.Lng, place.Lat, place.Lng) < 0.3;
+
+    // Penanda "Titik Asal" saat input rute (State C / E), sebelum Hitung Emisi
     private async Task UpdateOriginPreviewAsync()
     {
-        bool dariKlikPeta = _asalDariKlikPeta;
-        _asalDariKlikPeta = false;
-
-        // Di luar State C penanda asal diatur oleh garis rute / UpdateMapStateAsync
+        // Saat hasil / loading, penanda asal diatur oleh garis rute; di State A/B oleh UpdateMapStateAsync
         if (!_mapReady ||
             MapBrowser.CoreWebView2 == null ||
-            _viewModel?.CurrentState != AppState.StateC_InputRoute)
+            _viewModel?.CurrentState is not (AppState.StateC_InputRoute or AppState.StateE_Error))
         {
             return;
         }
@@ -294,7 +305,7 @@ public partial class MapView : UserControl
                     lat = asal.Lat,
                     lng = asal.Lng,
                     nama = asal.Nama,
-                    pan = !dariKlikPeta
+                    pan = !DekatKlikTerakhir(asal)
                 }
             );
 
@@ -441,6 +452,9 @@ public partial class MapView : UserControl
         }
     }
 
+    // Tempat yang sedang ditandai pin tujuan, supaya pin tidak digambar ulang (dan peta tidak bergeser) tanpa perlu
+    private Place? _penandaTujuan;
+
     private async Task UpdateMarkerAsync()
     {
         if (!_mapReady ||
@@ -451,7 +465,20 @@ public partial class MapView : UserControl
 
         try
         {
-            var place = _viewModel?.SelectedPlace;
+            // State A/B: tempat terpilih. State C/E: tujuan yang dipilih / dipratinjau.
+            // State L/D: penanda tujuan digambar bersama garis rute.
+            AppState? state = _viewModel?.CurrentState;
+            if (state is AppState.StateL_Loading or AppState.StateD_RouteResult)
+                return;
+
+            Place? place = state is AppState.StateA_Idle or AppState.StateB_SearchLocation
+                ? _viewModel?.SelectedPlace
+                : _viewModel?.TujuanTerpilih;
+
+            if (place == _penandaTujuan)
+                return;
+
+            _penandaTujuan = place;
 
             if (place == null)
             {
@@ -467,7 +494,11 @@ public partial class MapView : UserControl
                 {
                     lat = place.Lat,
                     lng = place.Lng,
-                    nama = place.Nama
+                    nama = place.Nama,
+                    caption = state is AppState.StateA_Idle or AppState.StateB_SearchLocation
+                        ? place.Kategori
+                        : "Tujuan",
+                    pan = !DekatKlikTerakhir(place)
                 }
             );
 
@@ -498,13 +529,7 @@ public partial class MapView : UserControl
                 _viewModel?.CurrentState ==
                     AppState.StateC_InputRoute;
 
-            string enabled =
-                isInputRoute ? "true" : "false";
-
-            await MapBrowser.CoreWebView2
-                .ExecuteScriptAsync(
-                    $"setOriginSelectionEnabled({enabled});"
-                );
+            await UpdateClickTargetAsync();
 
             // Pin tempat populer hanya di State A & B,
             // supaya peta bersih saat input & hasil rute.
@@ -541,6 +566,37 @@ public partial class MapView : UserControl
         {
             System.Diagnostics.Debug.WriteLine(
                 $"Gagal memperbarui state peta: {ex.Message}"
+            );
+        }
+    }
+
+    // Memberi tahu map.html penanda apa yang langsung digambar saat peta diklik
+    private async Task UpdateClickTargetAsync()
+    {
+        if (!_mapReady ||
+            MapBrowser.CoreWebView2 == null ||
+            _viewModel == null)
+        {
+            return;
+        }
+
+        string target = _viewModel.CurrentState switch
+        {
+            AppState.StateA_Idle or AppState.StateB_SearchLocation => "'tempat'",
+            AppState.StateC_InputRoute or AppState.StateD_RouteResult or AppState.StateE_Error =>
+                _viewModel.KolomAktif == KolomRute.Asal ? "'asal'" : "'tujuan'",
+            _ => "null"
+        };
+
+        try
+        {
+            await MapBrowser.CoreWebView2
+                .ExecuteScriptAsync($"setClickTarget({target});");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Gagal memperbarui target klik peta: {ex.Message}"
             );
         }
     }

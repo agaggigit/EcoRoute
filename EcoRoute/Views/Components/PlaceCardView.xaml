@@ -1,4 +1,4 @@
-
+﻿
 <!--
     State B - Info lokasi hasil pencarian. Pemilik: Annora.
     Binding: SearchQuery, SelectedPlace.Nama / .Alamat / .Kategori,
@@ -114,6 +114,7 @@
                     HorizontalContentAlignment="Center"
                     Margin="0,20,0,0"
                     Cursor="Hand"
+                    AutomationProperties.Name="Rute ke sini"
                     Command="{Binding MulaiRuteCommand}">
 
                 <StackPanel Orientation="Horizontal"
@@ -124,7 +125,7 @@
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"/>
 
-                    <TextBlock Text="Rute"
+                    <TextBlock Text="Rute ke sini"
                                FontSize="14"
                                FontWeight="SemiBold"/>
                 </StackPanel>

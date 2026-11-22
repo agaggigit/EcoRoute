@@ -1,4 +1,4 @@
-
+﻿
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -493,11 +493,13 @@
         let selectedMarker = null;
         let originMarker = null;
 
-        // Hanya aktif saat State C
-        let canSelectOrigin = false;
+        // Penanda yang digambar saat peta diklik: 'asal', 'tujuan', 'tempat', atau null (klik diabaikan)
+        let clickTarget = null;
 
-        // MARKER TUJUAN
-        function showLocation(lat, lng, nama) {
+        // MARKER TUJUAN / TEMPAT TERPILIH
+        // options.caption = teks kecil di popup, options.pan = false -> peta tidak digeser
+        function showLocation(lat, lng, nama, options) {
+            options = options || {};
             if (!Number.isFinite(lat) ||
                 !Number.isFinite(lng)) {
                 return;
@@ -520,14 +522,19 @@
             popup.textContent = nama || 'Lokasi dipilih';
 
             const caption = document.createElement('small');
-            caption.textContent = 'Tujuan';
+            caption.textContent = options.caption || 'Tujuan';
             popup.appendChild(caption);
 
             selectedMarker.bindPopup(popup, {
                 closeButton: false
             });
 
-            const zoom = 16;
+            if (options.pan === false) {
+                selectedMarker.openPopup();
+                return;
+            }
+
+            const zoom = Math.max(map.getZoom(), 16);
             map.flyTo(viewWithOffset([lat, lng], zoom), zoom, {
                 duration: 0.8
             });
@@ -543,7 +550,8 @@
             showLocation(
                 Number(location.lat),
                 Number(location.lng),
-                location.nama
+                location.nama,
+                { caption: location.caption, pan: location.pan }
             );
         }
 
@@ -812,27 +820,32 @@
             trafficLegendVisible = visible;
         }
 
-        // MENGATUR IZIN KLIK PETA
-        function setOriginSelectionEnabled(enabled) {
-            canSelectOrigin = enabled === true;
+        // MENGATUR TARGET KLIK PETA (dari MapView.xaml.cs)
+        function setClickTarget(target) {
+            clickTarget = target || null;
 
-            if (!canSelectOrigin) {
-                map.getContainer().style.cursor = '';
-            } else {
-                map.getContainer().style.cursor = 'crosshair';
-            }
+            // Crosshair saat klik mengisi kolom titik awal / tujuan
+            map.getContainer().style.cursor =
+                clickTarget === 'asal' || clickTarget === 'tujuan' ? 'crosshair' : '';
         }
 
-        // KLIK PETA
+        // KLIK PETA: penanda langsung digambar, nama tempat menyusul dari WPF
         map.on('click', function (event) {
-            if (!canSelectOrigin) {
+            if (clickTarget === null) {
                 return;
             }
 
             const lat = event.latlng.lat;
             const lng = event.latlng.lng;
 
-            showOrigin(lat, lng);
+            if (clickTarget === 'asal') {
+                showOrigin(lat, lng);
+            } else {
+                showLocation(lat, lng, 'Titik di peta', {
+                    pan: false,
+                    caption: clickTarget === 'tujuan' ? 'Tujuan' : 'Mencari nama tempat...'
+                });
+            }
 
             if (window.chrome &&
                 window.chrome.webview) {
