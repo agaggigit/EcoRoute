@@ -49,6 +49,34 @@ public partial class MainWindow : Window
         }
     }
 
+    // ==========================================
+    // TITLE BAR CUSTOM
+    // ==========================================
+
+    private void Minimize_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState.Minimized;
+
+    private void Maximize_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        bool maximized = WindowState == WindowState.Maximized;
+
+        // Jendela yang di-maximize meluber sebesar bingkai resize di tiap sisi
+        Thickness bingkai = SystemParameters.WindowResizeBorderThickness;
+        RootGrid.Margin = maximized
+            ? new Thickness(bingkai.Left + 4, bingkai.Top + 4, bingkai.Right + 4, bingkai.Bottom + 4)
+            : new Thickness(0);
+
+        MaximizeButton.Content = maximized ? "" : "";
+        MaximizeButton.ToolTip = maximized ? "Kembalikan ukuran" : "Maximize";
+    }
+
     private void LogoutButton_Click(
         object sender,
         RoutedEventArgs e)
