@@ -8,7 +8,8 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 
 - **Peta interaktif** (Leaflet + OpenStreetMap) dengan pin tempat populer Yogyakarta dan filter kategori.
 - **Pencarian tempat** lewat Nominatim (OpenStreetMap).
-- **Rute asli per moda** (jarak, durasi, dan garis rute) dari OSRM: jalan raya untuk Mobil, Motor, dan Bus, serta jalur khusus untuk Sepeda dan Jalan Kaki. Titik awal bisa diketik atau dipilih dengan klik di peta.
+- **Rute asli per moda** (jarak, durasi, dan garis rute) dari OSRM: jalan raya untuk Mobil dan Motor, serta jalur khusus untuk Sepeda dan Jalan Kaki. Titik awal bisa diketik atau dipilih dengan klik di peta.
+- **Trayek Trans Jogja asli untuk Bus**: aplikasi mencari satu trayek yang langsung menghubungkan titik awal dan tujuan, lalu menampilkan halte naik, halte turun, jalur bus, dan jalan kaki ke serta dari halte. Data 20 trayek diambil dari OpenStreetMap (detail di [docs/OOP.md](docs/OOP.md#trayek-trans-jogja)).
 - **Perbandingan emisi 5 moda**: Mobil, Motor, Bus, Sepeda, Jalan Kaki, masing-masing dengan jarak rutenya sendiri, beserta saran moda yang lebih hemat.
 - **Penalti kemacetan**: kondisi Lancar, Sedang, Padat, atau Macet memengaruhi emisi dan waktu tempuh kendaraan bermotor.
 - **Riwayat perjalanan** tersimpan di PostgreSQL dan bisa dilihat dari menu *Riwayat*.
@@ -152,4 +153,4 @@ Departemen Teknik Elektro dan Teknologi Informasi, Fakultas Teknik, Universitas 
 
 ## Atribusi Data
 
-Data peta © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Routing oleh [OSRM](https://project-osrm.org/) melalui server komunitas [routing.openstreetmap.de](https://routing.openstreetmap.de/). Data lalu lintas oleh [TomTom](https://developer.tomtom.com/). Faktor emisi adalah estimasi rata-rata per kilometer (per penumpang untuk Bus).
+Data peta © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Routing oleh [OSRM](https://project-osrm.org/) melalui server komunitas [routing.openstreetmap.de](https://routing.openstreetmap.de/). Data lalu lintas oleh [TomTom](https://developer.tomtom.com/). Trayek dan halte Trans Jogja dari OpenStreetMap (lisensi ODbL) lewat [Overpass API](https://overpass-api.de/). Faktor emisi adalah estimasi rata-rata per kilometer (per penumpang untuk Bus).
