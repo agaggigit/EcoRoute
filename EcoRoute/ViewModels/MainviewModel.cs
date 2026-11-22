@@ -884,6 +884,32 @@ public partial class MainViewModel : BaseViewModel
                  CurrentState != AppState.StateL_Loading &&
                  !string.IsNullOrWhiteSpace(TitikTujuan));
 
+        PilihModaCommand = new RelayCommand(p =>
+        {
+            if (p is string nama)
+                SelectedModa = nama;
+        });
+
+        // Properti turunan untuk card hasil
+        PropertyChanged += (_, e) =>
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(RingkasanLaluLintas):
+                    OnPropertyChanged(nameof(KeteranganKemacetan));
+                    break;
+                case nameof(KeteranganBus):
+                    OnPropertyChanged(nameof(KeteranganBusSingkat));
+                    break;
+                case nameof(SelectedModa):
+                    OnPropertyChanged(nameof(IsModaRekomendasi));
+                    break;
+                case nameof(EstimasiWaktuMenit):
+                    OnPropertyChanged(nameof(WaktuTampil));
+                    break;
+            }
+        };
+
         ResetCommand = new RelayCommand(ExecuteReset);
         TutupCommand = new RelayCommand(ExecuteTutup);
     }
@@ -1375,35 +1401,38 @@ public partial class MainViewModel : BaseViewModel
 
     private void HitungUlangEmisi()
     {
-        // Tiap moda memakai jarak rutenya sendiri; jalan raya dihitung per segmen sesuai kemacetannya
-        var emisiPerModa = DaftarModa
-            .Select(m => (
-                Moda: m,
-                Emisi: HitungEmisiModa(m)))
+        // Tiap moda memakai jarak dan rutenya sendiri; jalan raya dihitung per segmen sesuai kemacetannya
+        var perModa = DaftarModa
+            .Select(m =>
+            {
+                RouteResult? rute = RuteUntuk(m.Nama);
+                int waktu = rute is null
+                    ? 0
+                    : RoutingService.EstimasiWaktuMenit(m.Nama, rute, PengaliWaktuUntuk(rute));
+                return (Moda: m, Emisi: HitungEmisiModa(m), Waktu: waktu, JarakKm: rute?.JarakKm ?? JarakKm);
+            })
             .ToList();
 
-        double emisiMax =
-            emisiPerModa.Max(x => x.Emisi);
+        double emisiMax = perModa.Max(x => x.Emisi);
+        double emisiMin = perModa.Min(x => x.Emisi);
 
-        double emisiMin =
-            emisiPerModa.Min(x => x.Emisi);
+        ModaRekomendasi = RekomendasiModa.Pilih(
+            perModa.Select(x => new KandidatModa(x.Moda.Nama, x.Emisi, x.Waktu, x.JarakKm)));
 
-        PerbandinganModa = emisiPerModa
+        PerbandinganModa = perModa
             .Select(x => new PerbandinganEmisi(
                 x.Moda.Nama,
                 x.Moda.Ikon,
                 x.Emisi,
-                emisiMax > 0
-                    ? x.Emisi / emisiMax
-                    : 0,
+                emisiMax > 0 ? x.Emisi / emisiMax : 0,
                 x.Moda.Nama == SelectedModa,
-                x.Emisi == emisiMin))
+                x.Emisi == emisiMin,
+                x.Waktu,
+                x.Moda.Nama == ModaRekomendasi))
             .ToList();
 
-        EmisiKarbonKg = emisiPerModa
-            .FirstOrDefault(
-                x => x.Moda.Nama == SelectedModa)
-            .Emisi;
+        var terpilih = perModa.FirstOrDefault(x => x.Moda.Nama == SelectedModa);
+        EmisiKarbonKg = terpilih.Emisi;
 
         if (HasilRute is not null)
         {
@@ -1414,62 +1443,126 @@ public partial class MainViewModel : BaseViewModel
                     PengaliWaktuUntuk(HasilRute));
         }
 
-        InsightText = BuatInsight(emisiPerModa);
+        KondisiWaktu = HitungKondisiWaktu();
+
+        var rekomendasi = perModa.FirstOrDefault(x => x.Moda.Nama == ModaRekomendasi);
+        InsightText = BuatInsight(rekomendasi.Moda, rekomendasi.Emisi, rekomendasi.Waktu);
+        InsightDetail = BuatInsightDetail();
     }
 
-    private string BuatInsight(
-        List<(ModaTransportasi Moda, double Emisi)> emisiPerModa)
+    // ==========================================
+    // RINGKASAN HASIL (State D)
+    // ==========================================
+
+    // Moda yang direkomendasikan untuk rute ini (lihat Models/RekomendasiModa.cs)
+    private string? _modaRekomendasi;
+    public string? ModaRekomendasi
     {
-        if (EmisiKarbonKg == 0)
+        get => _modaRekomendasi;
+        private set
         {
-            return "Perjalanan ini tanpa emisi karbon. Mantap!";
+            if (SetProperty(ref _modaRekomendasi, value))
+                OnPropertyChanged(nameof(IsModaRekomendasi));
+        }
+    }
+
+    public bool IsModaRekomendasi => ModaRekomendasi == SelectedModa;
+
+    // Penjelasan lengkap saran (tooltip ikon info di card hasil)
+    private string _insightDetail = string.Empty;
+    public string InsightDetail
+    {
+        get => _insightDetail;
+        private set => SetProperty(ref _insightDetail, value);
+    }
+
+    // Kondisi lalu lintas yang memengaruhi waktu tempuh moda terpilih: "Lancar", "Sedang", "Padat", "Macet",
+    // atau kosong untuk moda tanpa kemacetan (sepeda, jalan kaki). Dipakai untuk mewarnai waktu tempuh.
+    private string _kondisiWaktu = string.Empty;
+    public string KondisiWaktu
+    {
+        get => _kondisiWaktu;
+        private set => SetProperty(ref _kondisiWaktu, value);
+    }
+
+    // Ringkasan kemacetan untuk tooltip, tanpa nama penyedia data
+    public string KeteranganKemacetan
+    {
+        get
+        {
+            string teks = RingkasanLaluLintas.Replace(" (live TomTom)", string.Empty);
+            int kurung = teks.IndexOf("(ditebak dari jam", StringComparison.Ordinal);
+            return kurung >= 0 ? teks[..kurung] + "(perkiraan dari jam)" : teks;
+        }
+    }
+
+    public ICommand PilihModaCommand { get; }
+
+    public string WaktuTampil => PerbandinganEmisi.TeksWaktu(EstimasiWaktuMenit);
+
+    private string HitungKondisiWaktu()
+    {
+        if (HasilRute is null ||
+            DaftarModa.FirstOrDefault(m => m.Nama == SelectedModa) is not KendaraanBermotor { TerpengaruhKemacetan: true })
+        {
+            return string.Empty;
         }
 
-        string insightModa =
-            BuatInsightModa(emisiPerModa);
+        // Pengali waktu 1,5 = kecepatan tinggal 67% dari normal, dst.
+        double pengali = PengaliWaktuUntuk(HasilRute);
+        return TingkatKemacetanInfo.DariRasioKecepatan(1.0 / Math.Max(pengali, 1.0)).ToString();
+    }
 
-        ModaTransportasi? moda =
-            DaftarModa.FirstOrDefault(
-                m => m.Nama == SelectedModa);
+    // Satu kalimat singkat: moda terpilih sudah terbaik, atau saran moda lain beserta untung-ruginya
+    private string BuatInsight(ModaTransportasi? rekomendasi, double emisiRekomendasi, int waktuRekomendasi)
+    {
+        if (rekomendasi is null)
+            return string.Empty;
+
+        if (rekomendasi.Nama == SelectedModa)
+        {
+            return EmisiKarbonKg == 0
+                ? "Pilihan terbaik: tanpa emisi untuk rute ini."
+                : "Pilihan terbaik untuk rute ini.";
+        }
+
+        double hemat = EmisiKarbonKg - emisiRekomendasi;
+        int selisihMenit = waktuRekomendasi - EstimasiWaktuMenit;
+        string waktu = selisihMenit switch
+        {
+            > 2 => $", +{selisihMenit} menit",
+            < -2 => $", {-selisihMenit} menit lebih cepat",
+            _ => ", waktunya hampir sama"
+        };
+
+        return hemat > 0.005
+            ? $"Coba {rekomendasi.Nama}: hemat {hemat:0.00} kg CO₂{waktu}."
+            : $"Coba {rekomendasi.Nama}{waktu}.";
+    }
+
+    private string BuatInsightDetail()
+    {
+        var kalimat = new List<string> { RekomendasiModa.Aturan };
 
         // Tambahan emisi akibat kemacetan saat ini dibanding kalau semua ruas lancar
-        if (moda is not KendaraanBermotor
-            {
-                TerpengaruhKemacetan: true
-            })
+        ModaTransportasi? moda = DaftarModa.FirstOrDefault(m => m.Nama == SelectedModa);
+        if (moda is KendaraanBermotor { TerpengaruhKemacetan: true })
         {
-            return insightModa;
+            double tambahan = EmisiKarbonKg -
+                moda.HitungEmisi(HasilRute is null ? JarakKm : JarakKendaraanKm(HasilRute));
+
+            if (tambahan >= 0.005)
+                kalimat.Add($"Kemacetan saat ini menambah {tambahan:0.00} kg CO₂ untuk {SelectedModa} dibanding kalau semua jalan lancar.");
         }
 
-        double tambahan =
-            EmisiKarbonKg -
-            moda.HitungEmisi(HasilRute is null ? JarakKm : JarakKendaraanKm(HasilRute));
-
-        if (tambahan < 0.005)
-            return insightModa;
-
-        return $"{insightModa} Kemacetan saat ini " +
-               $"menambah {tambahan:0.00} kg CO₂ " +
-               "dibanding kalau semua jalan lancar.";
+        return string.Join("\n\n", kalimat);
     }
 
-    private string BuatInsightModa(
-        List<(ModaTransportasi Moda, double Emisi)> emisiPerModa)
-    {
-        var alternatif = emisiPerModa
-            .Where(x =>
-                x.Moda is KendaraanBermotor &&
-                x.Emisi < EmisiKarbonKg)
-            .OrderBy(x => x.Emisi)
-            .FirstOrDefault();
-
-        return alternatif.Moda is null
-            ? $"{SelectedModa} sudah jadi kendaraan " +
-              "bermotor paling hemat untuk rute ini."
-            : $"Naik {alternatif.Moda.Nama} menghemat " +
-              $"{EmisiKarbonKg - alternatif.Emisi:0.00} " +
-              $"kg CO₂ dibanding {SelectedModa}.";
-    }
+    // Keterangan bus singkat di card hasil; rincian lengkap (KeteranganBus) ada di tooltip
+    public string KeteranganBusSingkat =>
+        HasilRute?.Bus is { } bus
+            ? $"Trans Jogja {bus.KodeTrayek} · naik di {bus.HalteNaik.Nama}"
+            : "Belum ada trayek Trans Jogja langsung";
 
     // ==========================================
     // RESET DAN NAVIGASI
