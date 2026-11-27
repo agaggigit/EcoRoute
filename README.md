@@ -19,7 +19,7 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 - **Trayek Trans Jogja asli untuk Bus**: aplikasi mencari satu trayek yang langsung menghubungkan titik awal dan tujuan, lalu menampilkan halte naik, halte turun, jalur bus, dan jalan kaki ke serta dari halte. Data 20 trayek diambil dari OpenStreetMap (detail di [docs/OOP.md](docs/OOP.md#trayek-trans-jogja)).
 - **Perbandingan emisi 5 moda**: Mobil, Motor, Bus, Sepeda, Jalan Kaki, masing-masing dengan jarak rutenya sendiri, beserta **rekomendasi** moda dengan emisi paling rendah yang waktu tempuhnya masih wajar (bukan selalu jalan kaki atau sepeda).
 - **Kemacetan live per ruas**: rute dipecah menjadi 3–10 segmen, kecepatan tiap segmen diambil dari TomTom Traffic Flow, lalu emisi kendaraan bermotor dihitung per segmen (Lancar, Sedang, Padat, Macet). Tanpa API key atau saat TomTom gagal, kemacetan ditebak dari jam dan aplikasi tetap berjalan.
-- **Riwayat perjalanan** tersimpan di SQLite lokal. Perjalanan dicatat lewat tombol *Pakai rute ini*, dan bisa diklik dari menu *Riwayat* untuk menghitung ulang rute yang sama dengan kondisi lalu lintas saat ini.
+- **Akun dan riwayat perjalanan** tersimpan di database PostgreSQL cloud (Neon), jadi bisa dibuka dari komputer mana pun. Perjalanan dicatat lewat tombol *Pakai rute ini*, dan bisa diklik dari menu *Riwayat* untuk menghitung ulang rute yang sama dengan kondisi lalu lintas saat ini.
 - **Eco Score**: total CO₂ yang dihemat dibanding naik mobil, poin, level (Bibit → Tunas → Pohon → Hutan), dan perbandingan "setara X pohon menyerap CO₂ selama setahun". CO₂ yang dihemat dihitung dalam kondisi lalu lintas lancar, jadi skor tidak naik-turun karena macet.
 - **Penanganan error** yang ramah pengguna untuk koneksi internet terputus, lokasi tidak ditemukan, atau database gagal dimuat.
 - **Logout** dengan dialog konfirmasi. Riwayat tidak hilang saat logout.
@@ -31,9 +31,9 @@ EcoRoute adalah aplikasi desktop Windows (C# WPF) untuk menghitung dan membandin
 | Aplikasi | C# .NET 10, WPF, pola MVVM |
 | Peta | WebView2 + Leaflet 1.9.4 + tile OpenStreetMap |
 | Web API (HttpClient) | Nominatim (geocoding), OSRM (routing), TomTom Traffic Flow (kemacetan live) |
-| Database | SQLite lokal + Microsoft.Data.Sqlite (dibuat otomatis, tanpa instalasi server) |
+| Database | PostgreSQL cloud ([Neon](https://neon.tech), region Singapura) + Npgsql |
 | Pengujian | xUnit |
-| Keamanan | Hash password PBKDF2-SHA256, 210.000 iterasi, salt acak |
+| Keamanan | Hash password PBKDF2-SHA256, 210.000 iterasi, salt acak; role database aplikasi tanpa akses langsung ke tabel |
 
 Nominatim dan OSRM gratis tanpa API key. TomTom membutuhkan API key (free tier, opsional); tanpa key, kemacetan ditebak dari jam.
 
@@ -47,11 +47,12 @@ EcoRoute/
 │   ├── ViewModels/            MainViewModel (state A–E dan Loading), BaseViewModel, RelayCommand
 │   ├── Views/Components/      IdleView, PlaceCardView, RouteInputView, EmissionResultView, EcoScoreView, MapView
 │   ├── Services/              AuthService, RoutingService (Nominatim + OSRM), TrafficService (TomTom),
-│   │                          SqliteDatabaseInitializer, SqliteDatabaseService
+│   │                          DatabaseConfig, DatabaseService (Npgsql)
+│   ├── Database/              Skrip SQL: skema, data awal, fungsi, hak akses role aplikasi
 │   ├── LoginWindow, LogoutDialog, MainWindow
 │   └── Maps/map.html          Peta Leaflet yang dimuat di WebView2
 ├── EcoRoute.Tests/            Unit test xUnit
-├── EcoRoute.SqliteTest/       Program konsol untuk menguji Register dan Login ke SQLite
+├── EcoRoute.DbTest/           Program konsol untuk menguji Register, Login, dan riwayat ke database cloud
 └── docs/                      Dokumentasi (OOP, spesifikasi, halaman project)
 ```
 
@@ -59,21 +60,42 @@ EcoRoute/
 
 - Windows 10 (versi 2004 / build 19041) atau Windows 11, 64-bit
 - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (sudah terpasang bawaan di Windows 11)
-- Koneksi internet (untuk peta, pencarian, rute, dan data lalu lintas)
+- Koneksi internet (untuk database, peta, pencarian, rute, dan data lalu lintas)
 - API key TomTom (opsional, untuk data kemacetan live)
 - .NET 10 SDK (hanya untuk build dari source)
 
 ## Cara Menjalankan
 
-### 1. Database (otomatis)
+### 1. Database (PostgreSQL cloud)
 
-EcoRoute memakai SQLite, jadi tidak ada yang perlu dipasang atau dikonfigurasi. Saat pertama dijalankan, aplikasi membuat file database, semua tabel, dan data faktor emisi sendiri di:
+Akun dan riwayat perjalanan disimpan di PostgreSQL yang di-host di [Neon](https://neon.tech). Aplikasi terhubung langsung ke database tanpa backend terpisah.
 
+**Exe hasil build resmi sudah membawa koneksi database**, jadi tinggal dijalankan. Langkah di bawah hanya untuk menjalankan dari source code atau memasang database sendiri.
+
+**Keamanan.** Connection string tidak pernah ditulis di repository. Aplikasi memakai role `ecoroute_app` yang **tidak punya akses ke tabel**. Role ini hanya boleh membaca tabel `emission_factor` dan memanggil empat fungsi `SECURITY DEFINER`:
+
+| Fungsi | Kegunaan |
+|---|---|
+| `fn_register` | Membuat akun baru (hash password dibuat di aplikasi) |
+| `fn_ambil_login` | Mengambil data login untuk **satu** email; daftar akun tidak bisa dibaca |
+| `fn_simpan_perjalanan` | Menyimpan rute dan perjalanan dalam satu transaksi |
+| `fn_riwayat` | Mengambil riwayat perjalanan satu pengguna |
+
+Karena connection string tertanam di exe dan bisa dibongkar, pembatasan ini memastikan kredensial tersebut tidak bisa dipakai untuk membaca semua akun, mengubah data, atau menghapus tabel. Pengembangan selanjutnya adalah backend API sebagai lapisan autentikasi di antara aplikasi dan database.
+
+**Memasang database sendiri** (sekali, sebagai pemilik database):
+
+1. Buat project di Neon, lalu jalankan `EcoRoute/Database/01_schema.sql`, `02_seed.sql`, dan `03_functions.sql`.
+2. Buat role aplikasi dengan password acak: `CREATE ROLE ecoroute_app LOGIN PASSWORD '...';`
+3. Jalankan `EcoRoute/Database/04_roles.sql`.
+
+**Menjalankan dari source.** Atur environment variable `ECOROUTE_DB_CONNECTION` berisi connection string role `ecoroute_app`. Bisa berupa format Npgsql (`Host=...;Database=...;Username=ecoroute_app;Password=...`) atau URI dari dashboard Neon (`postgresql://...`):
+
+```powershell
+[Environment]::SetEnvironmentVariable('ECOROUTE_DB_CONNECTION', 'isi-connection-string', 'User')
 ```
-%LOCALAPPDATA%\EcoRoute\ecoroute.db
-```
 
-Data akun dan riwayat tersimpan di komputer yang dipakai dan tidak tersinkronisasi antarperangkat. Untuk mengosongkan data, tutup aplikasi lalu hapus file `ecoroute.db`; file akan dibuat ulang saat aplikasi dibuka lagi. Untuk mencoba atau demo tanpa mengubah riwayat asli, atur environment variable `ECOROUTE_DB_PATH` ke lokasi file database lain (contoh `D:\demo\ecoroute.db`).
+Buka ulang terminal atau Visual Studio setelah mengatur variabel ini. Variabel yang sama dipakai untuk mengarahkan aplikasi ke database lain, misalnya database uji.
 
 ### 2. Atur API key TomTom (opsional)
 
@@ -128,7 +150,7 @@ Build menghasilkan `EcoRoute.exe` mandiri (self-contained, tidak perlu install .
 dotnet publish EcoRoute/EcoRoute.csproj -p:PublishProfile=win-x64
 ```
 
-Kalau environment variable `TOMTOM_API_KEY` sudah diatur, key otomatis ditanam ke exe sehingga data kemacetan live jalan di komputer mana pun. Key juga bisa diberikan langsung dengan `-p:TomTomApiKey=isi-api-key`. Key yang tertanam bisa dibongkar dari exe, jadi pakai key free tier khusus untuk project ini.
+Kalau environment variable `TOMTOM_API_KEY` dan `ECOROUTE_DB_CONNECTION` sudah diatur, keduanya otomatis ditanam ke exe, sehingga data kemacetan live dan database jalan di komputer mana pun tanpa konfigurasi. Key juga bisa diberikan langsung dengan `-p:TomTomApiKey=isi-api-key`. Key yang tertanam bisa dibongkar dari exe, jadi pakai key free tier khusus untuk project ini.
 
 Hasilnya ada di `EcoRoute/bin/publish/win-x64/`: `EcoRoute.exe` (±70 MB) dan folder `Maps/`. Bagikan keduanya bersama-sama, misalnya dalam satu file zip. Komputer tujuan hanya perlu WebView2 Runtime (bawaan Windows 11).
 
@@ -138,12 +160,12 @@ Hasilnya ada di `EcoRoute/bin/publish/win-x64/`: `EcoRoute.exe` (±70 MB) dan fo
 dotnet test EcoRoute.slnx
 ```
 
-Unit test (127 metode uji) mencakup rumus emisi per moda dan penalti kemacetan, tebakan kondisi lalu lintas, pembacaan data TomTom dan pembagian segmen rute, estimasi waktu tempuh, perhitungan Eco Score, pratinjau titik awal dan tujuan, klik peta dan nama tempat dari titik, rekomendasi moda, saran lokasi, pencatatan perjalanan, dan perpindahan panel. 
+Unit test (150 kasus uji) mencakup rumus emisi per moda dan penalti kemacetan, tebakan kondisi lalu lintas, pembacaan data TomTom dan pembagian segmen rute, estimasi waktu tempuh, perhitungan Eco Score, pratinjau titik awal dan tujuan, klik peta dan nama tempat dari titik, rekomendasi moda, saran lokasi, pencatatan perjalanan, dan perpindahan panel. 
 
-Alur Register dan Login langsung ke SQLite bisa diuji dengan:
+Alur Register, Login, daftar moda, simpan perjalanan, dan riwayat terhadap database cloud bisa diuji dengan (butuh `ECOROUTE_DB_CONNECTION`):
 
 ```bash
-dotnet run --project EcoRoute.SqliteTest
+dotnet run --project EcoRoute.DbTest
 ```
 
 ## Dokumentasi
@@ -161,7 +183,7 @@ Departemen Teknik Elektro dan Teknologi Informasi, Fakultas Teknik, Universitas 
 |---|---|---|
 | Akio Afifian Ahsan (Ketua) | 24/542230/TK/60198 | Input rute & hasil emisi, OOP |
 | Annora Farah Aprilla Setyawan | 24/538937/TK/59766 |Peta, tampilan idle & detail lokasi, autentikasi (Register/Login), Eco Score |
-| Muhammad Affandi Argya Bagaskara | 24/538984/TK/59778 | Fondasi UI & ViewModel, database SQLite, integrasi TomTom (kemacetan live), integrasi |
+| Muhammad Affandi Argya Bagaskara | 24/538984/TK/59778 | Fondasi UI & ViewModel, database (SQLite lalu migrasi ke PostgreSQL cloud), integrasi TomTom (kemacetan live), integrasi |
 
 ## Atribusi Data
 

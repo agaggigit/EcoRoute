@@ -1,12 +1,12 @@
 ﻿
 using System;
+using System.Linq;
 using EcoRoute.Services;
 
 try
 {
-    Console.WriteLine("=== PENGUJIAN LOGIN & REGISTER ECOROUTE ===");
-
-    await SqliteDatabaseInitializer.InitializeAsync();
+    // Memakai database dari environment variable ECOROUTE_DB_CONNECTION
+    Console.WriteLine("=== PENGUJIAN DATABASE CLOUD ECOROUTE ===");
 
     var auth = new AuthService();
 
@@ -73,7 +73,39 @@ try
 
     Console.WriteLine("Akun tidak ditemukan: DITOLAK");
 
-    Console.WriteLine("SEMUA PENGUJIAN AUTENTIKASI BERHASIL!");
+    // TEST 6: Daftar moda dari tabel emission_factor
+    var db = new DatabaseService();
+    var moda = await db.GetModaTransportasiAsync();
+
+    if (moda.Count == 0)
+        throw new Exception("Data moda kosong.");
+
+    Console.WriteLine($"Daftar moda: {string.Join(", ", moda.Select(m => m.Nama))}");
+
+    // TEST 7: Simpan perjalanan lalu baca lagi lewat riwayat
+    int tripId = await db.SaveTripAsync(
+        user.UserId, "Tugu Yogyakarta", "Malioboro",
+        -7.7829, 110.3671, -7.7926, 110.3658,
+        1.4, 6, "Motor", 0.144);
+
+    var riwayat = await db.GetTripHistoryAsync(user.UserId);
+
+    if (riwayat.Count != 1 || riwayat[0].TripId != tripId ||
+        riwayat[0].ModaDipilih != "Motor" ||
+        Math.Abs((riwayat[0].Tanggal - DateTime.Now).TotalMinutes) > 5)
+        throw new Exception("Riwayat tidak sesuai dengan perjalanan yang disimpan.");
+
+    Console.WriteLine($"Simpan & baca riwayat: BERHASIL (trip {tripId}, {riwayat[0].Tanggal:dd MMM HH:mm})");
+
+    // TEST 8: Riwayat pengguna lain tidak ikut terbaca
+    var riwayatLain = await db.GetTripHistoryAsync(user.UserId + 100000);
+
+    if (riwayatLain.Count != 0)
+        throw new Exception("Riwayat pengguna lain ikut terbaca.");
+
+    Console.WriteLine("Riwayat terpisah per pengguna: BERHASIL");
+
+    Console.WriteLine("SEMUA PENGUJIAN DATABASE BERHASIL!");
 }
 catch (Exception ex)
 {

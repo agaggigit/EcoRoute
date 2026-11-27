@@ -2,7 +2,8 @@
 using System;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
-using Microsoft.Data.Sqlite;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace EcoRoute.Services;
 
@@ -40,21 +41,13 @@ public class AuthService
         string passwordHash =
             $"PBKDF2-SHA256${Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
 
-        await using var connection = new SqliteConnection(
-            SqliteDatabaseInitializer.ConnectionString);
+        // Hanya lewat fungsi fn_register: role aplikasi tidak bisa menulis ke tabel users langsung
+        await using var command = DatabaseConfig.DataSource.CreateCommand(
+            "SELECT fn_register($1, $2, $3);");
 
-        await connection.OpenAsync();
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            INSERT INTO users (nama_user, email_user, password_hash)
-            VALUES (@nama, @email, @hash)
-            RETURNING user_id;
-            """;
-
-        command.Parameters.AddWithValue("@nama", nama);
-        command.Parameters.AddWithValue("@email", email);
-        command.Parameters.AddWithValue("@hash", passwordHash);
+        command.Parameters.Add(new() { Value = nama, NpgsqlDbType = NpgsqlDbType.Text });
+        command.Parameters.Add(new() { Value = email, NpgsqlDbType = NpgsqlDbType.Text });
+        command.Parameters.Add(new() { Value = passwordHash, NpgsqlDbType = NpgsqlDbType.Text });
 
         try
         {
@@ -63,8 +56,9 @@ public class AuthService
 
             return new AuthUser(userId, nama, email);
         }
-        catch (SqliteException ex)
-            when (ex.SqliteErrorCode == 19)
+        catch (PostgresException ex)
+            when (ex.SqlState is PostgresErrorCodes.UniqueViolation
+                or PostgresErrorCodes.CheckViolation)
         {
             throw new InvalidOperationException(
                 "Email sudah terdaftar atau data tidak valid.", ex);
@@ -76,19 +70,11 @@ public class AuthService
     {
         email = email.Trim().ToLowerInvariant();
 
-        await using var connection = new SqliteConnection(
-            SqliteDatabaseInitializer.ConnectionString);
+        // fn_ambil_login hanya mengembalikan data untuk satu email; daftar akun tidak bisa dibaca
+        await using var command = DatabaseConfig.DataSource.CreateCommand(
+            "SELECT user_id, nama_user, email_user, password_hash FROM fn_ambil_login($1);");
 
-        await connection.OpenAsync();
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT user_id, nama_user, email_user, password_hash
-            FROM users
-            WHERE email_user = @email COLLATE NOCASE;
-            """;
-
-        command.Parameters.AddWithValue("@email", email);
+        command.Parameters.Add(new() { Value = email, NpgsqlDbType = NpgsqlDbType.Text });
 
         await using var reader = await command.ExecuteReaderAsync();
 

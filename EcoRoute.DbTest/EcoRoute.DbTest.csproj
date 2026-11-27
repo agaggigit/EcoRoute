@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EcoRoute\EcoRoute.csproj" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
   </ItemGroup>
 
 </Project>
