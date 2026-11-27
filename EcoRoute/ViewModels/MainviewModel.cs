@@ -16,7 +16,7 @@ public partial class MainViewModel : BaseViewModel
     private readonly TrafficService _trafficService = new();
     private readonly TransJogjaService _transJogja;
     private readonly Func<double, double, CancellationToken, Task<Place?>> _cariNamaTitik;
-    private SqliteDatabaseService? _databaseService;
+    private DatabaseService? _databaseService;
 
     private AppState _currentState = AppState.StateA_Idle;
     private bool _isMencari;
@@ -51,7 +51,7 @@ public partial class MainViewModel : BaseViewModel
     // Rute Bus lewat trayek Trans Jogja langsung. null = tidak ada trayek langsung (Bus ikut jalan raya).
     private RouteResult? _ruteBus;
 
-    // Nilai cadangan sebelum data moda berhasil dimuat dari SQLite.
+    // Nilai cadangan sebelum data moda berhasil dimuat dari database.
     private IReadOnlyList<ModaTransportasi> _daftarModa =
     [
         new KendaraanBermotor("Mobil", "\uE804", 0.1920, 1.35),
@@ -958,12 +958,12 @@ public partial class MainViewModel : BaseViewModel
     }
 
     // ==========================================
-    // DATABASE SQLITE
+    // DATABASE (PostgreSQL cloud)
     // ==========================================
 
     public async Task LoadModaFromDatabaseAsync()
     {
-        var database = new SqliteDatabaseService();
+        var database = new DatabaseService();
 
         // Hanya moda yang punya jalur (lihat RoutingService.ProfilUntuk). Kereta sudah dihapus,
         // tapi barisnya bisa masih ada di database lama karena dipakai riwayat perjalanan.
@@ -975,7 +975,7 @@ public partial class MainViewModel : BaseViewModel
         if (modaDariDb.Count == 0)
         {
             throw new InvalidOperationException(
-                "Data moda transportasi SQLite kosong.");
+                "Data moda transportasi di database kosong.");
         }
 
         // Mengganti ItemsSource membuat ListBox moda mengosongkan pilihannya dan
@@ -1013,7 +1013,7 @@ public partial class MainViewModel : BaseViewModel
         catch (Exception ex)
         {
             StatusRiwayat =
-                $"Gagal memuat riwayat: {ex.Message}";
+                $"Gagal memuat riwayat: {DatabaseConfig.PesanRamah(ex)}";
         }
     }
 
@@ -1047,7 +1047,7 @@ public partial class MainViewModel : BaseViewModel
         catch (Exception ex)
         {
             Notifikasi =
-                $"Hasil tidak tersimpan ke riwayat: {ex.Message}";
+                $"Hasil tidak tersimpan ke riwayat: {DatabaseConfig.PesanRamah(ex)}";
             return false;
         }
     }

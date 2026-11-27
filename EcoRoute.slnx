@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="EcoRoute.DbTest/EcoRoute.DbTest.csproj" />
   <Project Path="EcoRoute.Tests/EcoRoute.Tests.csproj" />
   <Project Path="EcoRoute/EcoRoute.csproj" />
 </Solution>

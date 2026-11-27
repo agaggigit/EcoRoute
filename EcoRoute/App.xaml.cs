@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using System.Globalization;
 using System.Windows;
@@ -21,7 +21,8 @@ public partial class App : Application
 
         try
         {
-            await SqliteDatabaseInitializer.InitializeAsync();
+            // Bangunkan database cloud selagi pengguna mengisi form login (tidak ditunggu)
+            _ = DatabaseConfig.PanaskanAsync();
 
             while (true)
             {

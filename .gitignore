@@ -3,3 +3,5 @@ EcoRoute/bin/
 EcoRoute/obj/
 EcoRoute.Tests/bin/
 EcoRoute.Tests/obj/
+EcoRoute.DbTest/bin/
+EcoRoute.DbTest/obj/

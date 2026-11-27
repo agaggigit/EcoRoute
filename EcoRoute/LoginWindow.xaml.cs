@@ -100,7 +100,7 @@ public partial class LoginWindow : Window
         }
         catch (Exception ex)
         {
-            TampilkanError(ex.Message);
+            TampilkanError(Services.DatabaseConfig.PesanRamah(ex));
         }
         finally
         {

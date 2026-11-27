@@ -41,7 +41,8 @@ public partial class MainWindow : Window
             _databaseLoaded = false;
 
             MessageBox.Show(
-                "Gagal memuat database SQLite:\n\n" + ex.Message,
+                "Gagal memuat data dari database:\n\n" +
+                    Services.DatabaseConfig.PesanRamah(ex),
                 "EcoRoute",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error
